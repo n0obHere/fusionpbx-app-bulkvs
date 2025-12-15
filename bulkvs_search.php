@@ -27,6 +27,7 @@
 //includes files
 	require_once dirname(__DIR__, 2) . "/resources/require.php";
 	require_once "resources/check_auth.php";
+	require_once dirname(__DIR__, 2) . "/resources/paging.php";
 
 //check permissions
 	if (!permission_exists('bulkvs_search')) {
@@ -46,8 +47,6 @@
 	$search_action = $_GET['action'] ?? $_POST['action'] ?? '';
 	$purchase_tn = $_POST['purchase_tn'] ?? '';
 	$purchase_domain_uuid = $_POST['purchase_domain_uuid'] ?? '';
-	$page = isset($_GET['page']) ? (int)$_GET['page'] : 1;
-	$rows_per_page = 50; // Limit results per page to prevent memory issues
 	
 	// Parse search query: 3 digits = NPA, 6 digits = NPANXX
 	$npa = '';
@@ -122,8 +121,8 @@
 
 			message::add($text['message-purchase-success']);
 			$redirect_url = "bulkvs_search.php?search=".urlencode($search_query)."&action=search";
-			if (!empty($page)) {
-				$redirect_url .= "&page=".urlencode($page);
+			if (isset($_GET['page'])) {
+				$redirect_url .= "&page=".urlencode($_GET['page']);
 			}
 			header("Location: ".$redirect_url);
 			return;
@@ -135,6 +134,10 @@
 //search for numbers
 	$search_results = [];
 	$error_message = '';
+	$num_rows = 0;
+	$paging_controls = '';
+	$paging_controls_mini = '';
+	
 	if ($search_action == 'search' && !empty($npa)) {
 		try {
 			require_once "resources/classes/bulkvs_api.php";
@@ -144,11 +147,29 @@
 			// Handle API response - API returns array directly, not wrapped in 'data'
 			if (is_array($api_response)) {
 				$search_results = $api_response;
+				$num_rows = count($search_results);
 			}
 		} catch (Exception $e) {
 			$error_message = $e->getMessage();
 			message::add($text['message-api-error'] . ': ' . $error_message, 'negative');
 		}
+	}
+
+//prepare to page the results
+	$rows_per_page = $settings->get('domain', 'paging', 50);
+	$param = "&search=".urlencode($search_query)."&action=search";
+	if (!empty($_GET['page'])) {
+		$page = $_GET['page'];
+	}
+	if (!isset($page)) { $page = 0; $_GET['page'] = 0; }
+	[$paging_controls, $rows_per_page] = paging($num_rows, $param, $rows_per_page);
+	[$paging_controls_mini, $rows_per_page] = paging($num_rows, $param, $rows_per_page, true);
+	$offset = $rows_per_page * $page;
+	
+	// Slice the results array for pagination
+	$paginated_results = [];
+	if (!empty($search_results)) {
+		$paginated_results = array_slice($search_results, $offset, $rows_per_page);
 	}
 
 //get list of domains for purchase dropdown
@@ -178,9 +199,16 @@
 
 //show the content
 	echo "<div class='action_bar' id='action_bar'>\n";
-	echo "	<div class='heading'><b>".$text['title-bulkvs-search']."</b></div>\n";
+	echo "	<div class='heading'><b>".$text['title-bulkvs-search']."</b>";
+	if ($num_rows > 0) {
+		echo "<div class='count'>".number_format($num_rows)."</div>";
+	}
+	echo "</div>\n";
 	echo "	<div class='actions'>\n";
 	echo button::create(['type'=>'button','label'=>$text['button-back'],'icon'=>'arrow-left','link'=>'bulkvs_numbers.php']);
+	if ($paging_controls_mini != '') {
+		echo "<span style='margin-left: 15px;'>".$paging_controls_mini."</span>";
+	}
 	echo "	</div>\n";
 	echo "	<div style='clear: both;'></div>\n";
 	echo "</div>\n";
@@ -215,70 +243,7 @@
 			echo "<br />\n";
 		}
 
-		if (!empty($search_results)) {
-			// Pagination: Calculate total pages and slice results
-			$total_results = count($search_results);
-			$total_pages = ceil($total_results / $rows_per_page);
-			$page = max(1, min($page, $total_pages)); // Ensure page is within valid range
-			$offset = ($page - 1) * $rows_per_page;
-			$paginated_results = array_slice($search_results, $offset, $rows_per_page);
-			
-			// Display result count and pagination info
-			echo "<div class='card'>\n";
-			echo "	<div class='subheading'>";
-			echo "		Found ".number_format($total_results)." number(s)";
-			if ($total_pages > 1) {
-				echo " - Page ".$page." of ".$total_pages;
-			}
-			echo "	</div>\n";
-			echo "</div>\n";
-			echo "<br />\n";
-			
-			// Pagination controls
-			if ($total_pages > 1) {
-				echo "<div class='card'>\n";
-				echo "	<div class='content' style='text-align: center; padding: 10px;'>\n";
-				$base_url = "bulkvs_search.php?search=".urlencode($search_query)."&action=search";
-				
-				if ($page > 1) {
-					echo "		<a href='".$base_url."&page=".($page - 1)."' class='btn' style='margin-right: 5px;'>Previous</a>\n";
-				}
-				
-				// Show page numbers (current page ± 2 pages)
-				$start_page = max(1, $page - 2);
-				$end_page = min($total_pages, $page + 2);
-				
-				if ($start_page > 1) {
-					echo "		<a href='".$base_url."&page=1' class='btn' style='margin: 0 2px;'>1</a>\n";
-					if ($start_page > 2) {
-						echo "		<span style='margin: 0 5px;'>...</span>\n";
-					}
-				}
-				
-				for ($i = $start_page; $i <= $end_page; $i++) {
-					if ($i == $page) {
-						echo "		<span class='btn' style='margin: 0 2px; background-color: #007bff; color: white;'>".$i."</span>\n";
-					} else {
-						echo "		<a href='".$base_url."&page=".$i."' class='btn' style='margin: 0 2px;'>".$i."</a>\n";
-					}
-				}
-				
-				if ($end_page < $total_pages) {
-					if ($end_page < $total_pages - 1) {
-						echo "		<span style='margin: 0 5px;'>...</span>\n";
-					}
-					echo "		<a href='".$base_url."&page=".$total_pages."' class='btn' style='margin: 0 2px;'>".$total_pages."</a>\n";
-				}
-				
-				if ($page < $total_pages) {
-					echo "		<a href='".$base_url."&page=".($page + 1)."' class='btn' style='margin-left: 5px;'>Next</a>\n";
-				}
-				
-				echo "	</div>\n";
-				echo "</div>\n";
-				echo "<br />\n";
-			}
-			
+		if (!empty($paginated_results)) {
 			echo "<div class='card'>\n";
 			echo "<table class='list'>\n";
 			echo "<tr class='list-header'>\n";
@@ -306,7 +271,9 @@
 					echo "			<input type='hidden' name='action' value='purchase'>\n";
 					echo "			<input type='hidden' name='purchase_tn' value='".escape($tn)."'>\n";
 					echo "			<input type='hidden' name='search' value='".escape($search_query)."'>\n";
-					echo "			<input type='hidden' name='page' value='".escape($page)."'>\n";
+					if (isset($_GET['page'])) {
+						echo "			<input type='hidden' name='page' value='".escape($_GET['page'])."'>\n";
+					}
 					echo "			<select name='purchase_domain_uuid' class='formfld' style='width: auto; margin-right: 5px;'>\n";
 					foreach ($domains as $domain) {
 						$selected = ($domain['domain_uuid'] == $domain_uuid) ? 'selected' : '';
@@ -323,6 +290,10 @@
 
 			echo "</table>\n";
 			echo "</div>\n";
+			echo "<br />\n";
+			if ($paging_controls != '') {
+				echo "<div align='center'>".$paging_controls."</div>\n";
+			}
 		} else {
 			if (empty($error_message)) {
 				echo "<div class='card'>\n";
