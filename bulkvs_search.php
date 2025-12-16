@@ -98,12 +98,17 @@
 				}
 
 				// Get purchase form fields
-				$purchase_lidb = isset($_POST['purchase_lidb']) && trim($_POST['purchase_lidb']) !== '' ? trim($_POST['purchase_lidb']) : null;
-				$purchase_portout_pin = isset($_POST['purchase_portout_pin']) && trim($_POST['purchase_portout_pin']) !== '' ? trim($_POST['purchase_portout_pin']) : null;
-				$purchase_reference_id = isset($_POST['purchase_reference_id']) && trim($_POST['purchase_reference_id']) !== '' ? trim($_POST['purchase_reference_id']) : null;
+				$purchase_lidb = isset($_POST['purchase_lidb']) ? trim($_POST['purchase_lidb']) : '';
+				$purchase_portout_pin = isset($_POST['purchase_portout_pin']) && trim($_POST['purchase_portout_pin']) !== '' ? trim($_POST['purchase_portout_pin']) : '';
+				$purchase_reference_id = isset($_POST['purchase_reference_id']) ? trim($_POST['purchase_reference_id']) : '';
+				
+				// Generate random 8-digit portout PIN if not provided
+				if (empty($purchase_portout_pin)) {
+					$purchase_portout_pin = str_pad(rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
+				}
 
 				// Log the purchase request data
-				error_log("BulkVS Purchase Request - TN: $purchase_tn, Trunk Group: $trunk_group, LIDB: " . ($purchase_lidb ?? 'null') . ", Portout PIN: " . ($purchase_portout_pin ?? 'null') . ", Reference ID: " . ($purchase_reference_id ?? 'null'));
+				error_log("BulkVS Purchase Request - TN: $purchase_tn, Trunk Group: $trunk_group, LIDB: '$purchase_lidb', Portout PIN: '$purchase_portout_pin', Reference ID: '$purchase_reference_id'");
 
 				// Purchase the number
 				$purchase_result = $bulkvs_api->purchaseNumber($purchase_tn, $trunk_group, $purchase_lidb, $purchase_portout_pin, $purchase_reference_id);

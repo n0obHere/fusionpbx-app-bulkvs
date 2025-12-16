@@ -250,25 +250,18 @@ class bulkvs_api {
 	 * @param string $reference_id Reference ID/Notes (optional)
 	 * @return array Response data
 	 */
-	public function purchaseNumber($tn, $trunk_group, $lidb = null, $portout_pin = null, $reference_id = null) {
+	public function purchaseNumber($tn, $trunk_group, $lidb = '', $portout_pin = '', $reference_id = '') {
+		// Always include all fields exactly as the API expects
 		$data = [
 			'TN' => $tn,
 			'Trunk Group' => $trunk_group,
+			'Lidb' => trim($lidb),
+			'Portout Pin' => trim($portout_pin),
+			'ReferenceID' => trim($reference_id),
 			'Sms' => false,
 			'Mms' => false,
 			'Webhook' => '' // Send empty webhook field as required
 		];
-		
-		// Only add fields if they are provided (not null and not empty)
-		if ($lidb !== null && trim($lidb) !== '') {
-			$data['Lidb'] = trim($lidb);
-		}
-		if ($portout_pin !== null && trim($portout_pin) !== '') {
-			$data['Portout Pin'] = trim($portout_pin);
-		}
-		if ($reference_id !== null && trim($reference_id) !== '') {
-			$data['ReferenceID'] = trim($reference_id);
-		}
 		
 		// Log the data being sent
 		error_log("BulkVS purchaseNumber() - Sending data: " . json_encode($data));
