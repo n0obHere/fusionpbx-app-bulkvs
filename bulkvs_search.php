@@ -206,6 +206,10 @@
 	echo "</div>\n";
 	echo "	<div class='actions'>\n";
 	echo button::create(['type'=>'button','label'=>$text['button-back'],'icon'=>'arrow-left','link'=>'bulkvs_numbers.php']);
+	if (!empty($paginated_results)) {
+		echo "		<input type='text' id='table_filter' class='txt list-search' placeholder='Filter results...' style='margin-left: 15px; width: 200px;' onkeyup='filterTable()'>";
+		echo "		<span id='filter_count' style='margin-left: 5px; color: #666; font-size: 12px;'></span>";
+	}
 	if ($paging_controls_mini != '') {
 		echo "<span style='margin-left: 15px;'>".$paging_controls_mini."</span>";
 	}
@@ -244,20 +248,6 @@
 		}
 
 		if (!empty($paginated_results)) {
-			// Filter input for client-side search
-			echo "<div class='card'>\n";
-			echo "	<div class='content'>\n";
-			echo "		<table class='no_hover' style='width: 100%;'>\n";
-			echo "			<tr>\n";
-			echo "				<td style='width: 200px;'>Filter Results:</td>\n";
-			echo "				<td><input type='text' id='table_filter' class='formfld' placeholder='Type to filter...' style='width: 100%; max-width: 400px;' onkeyup='filterTable()'></td>\n";
-			echo "				<td><span id='filter_count' style='color: #666;'></span></td>\n";
-			echo "			</tr>\n";
-			echo "		</table>\n";
-			echo "	</div>\n";
-			echo "</div>\n";
-			echo "<br />\n";
-			
 			echo "<div class='card'>\n";
 			echo "<table class='list' id='results_table'>\n";
 			echo "<tr class='list-header'>\n";
@@ -358,9 +348,9 @@
 		echo "	// Update filter count\n";
 		echo "	var countElement = document.getElementById('filter_count');\n";
 		echo "	if (filter === '') {\n";
-		echo "		countElement.textContent = 'Showing all ' + totalRows + ' results';\n";
+		echo "		countElement.textContent = '';\n";
 		echo "	} else {\n";
-		echo "		countElement.textContent = 'Showing ' + visibleCount + ' of ' + totalRows;\n";
+		echo "		countElement.textContent = '(' + visibleCount + '/' + totalRows + ')';\n";
 		echo "	}\n";
 		echo "}\n";
 		echo "// Initialize count on page load\n";
