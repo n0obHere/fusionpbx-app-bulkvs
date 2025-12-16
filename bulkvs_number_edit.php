@@ -149,46 +149,75 @@
 	echo "</div>\n";
 
 	echo "<div class='card'>\n";
-	echo "	<div class='subheading'>".$text['label-telephone-number'].": ".escape($tn)."</div>\n";
-	echo "</div>\n";
-	echo "<br />\n";
+	echo "<table width='100%' border='0' cellpadding='0' cellspacing='0'>\n";
 
-	echo "<div class='card'>\n";
-	echo "	<div class='subheading'>".$text['title-bulkvs-number-edit']."</div>\n";
-	echo "	<div class='content'>\n";
-	echo "		<table class='no_hover'>\n";
-	echo "			<tr>\n";
-	echo "				<td class='vncell' style='vertical-align: top;'>".$text['label-lidb']."</td>\n";
-	echo "				<td class='vtable'><input type='text' class='formfld' name='lidb' id='lidb' value='".escape($lidb)."' maxlength='15' pattern='[A-Z0-9 ]{0,15}' title='Up to 15 alphanumeric characters and spaces (letters will be converted to uppercase)' oninput=\"this.value = this.value.replace(/[^A-Z0-9 ]/gi, '').toUpperCase();\"></td>\n";
-	echo "			</tr>\n";
-	echo "			<tr>\n";
-	echo "				<td class='vncell' style='vertical-align: top;'>".$text['label-portout-pin']."</td>\n";
-	echo "				<td class='vtable'><input type='text' class='formfld' name='portout_pin' value='".escape($portout_pin)."' maxlength='10'></td>\n";
-	echo "			</tr>\n";
-	echo "			<tr>\n";
-	echo "				<td class='vncell' style='vertical-align: top;'>".$text['label-notes']."</td>\n";
-	echo "				<td class='vtable'><input type='text' class='formfld' name='notes' value='".escape($notes)."' maxlength='255'></td>\n";
-	echo "			</tr>\n";
-	echo "			<tr>\n";
-	echo "				<td class='vncell' style='vertical-align: top;'>".$text['label-sms']."</td>\n";
-	echo "				<td class='vtable'>\n";
-	echo "					<select class='formfld' name='sms'>\n";
-	echo "						<option value='0'".($sms ? '' : " selected").">".$text['label-disabled']."</option>\n";
-	echo "						<option value='1'".($sms ? " selected" : '').">".$text['label-enabled']."</option>\n";
-	echo "					</select>\n";
-	echo "				</td>\n";
-	echo "			</tr>\n";
-	echo "			<tr>\n";
-	echo "				<td class='vncell' style='vertical-align: top;'>".$text['label-mms']."</td>\n";
-	echo "				<td class='vtable'>\n";
-	echo "					<select class='formfld' name='mms'>\n";
-	echo "						<option value='0'".($mms ? '' : " selected").">".$text['label-disabled']."</option>\n";
-	echo "						<option value='1'".($mms ? " selected" : '').">".$text['label-enabled']."</option>\n";
-	echo "					</select>\n";
-	echo "				</td>\n";
-	echo "			</tr>\n";
-	echo "		</table>\n";
-	echo "	</div>\n";
+	//telephone number
+	echo "<tr>\n";
+	echo "<td width='30%' class='vncell' valign='top' align='left' nowrap='nowrap'>\n";
+	echo "	".$text['label-telephone-number']."\n";
+	echo "</td>\n";
+	echo "<td width='70%' class='vtable' align='left'>\n";
+	echo "	".escape($tn)."\n";
+	echo "</td>\n";
+	echo "</tr>\n";
+
+	//LIDB
+	echo "<tr>\n";
+	echo "<td class='vncell' valign='top' align='left' nowrap='nowrap'>\n";
+	echo "	".$text['label-lidb']."\n";
+	echo "</td>\n";
+	echo "<td class='vtable' align='left'>\n";
+	echo "	<input type='text' class='formfld' name='lidb' id='lidb' value='".escape($lidb)."' maxlength='15' pattern='[A-Z0-9 ]{0,15}' title='Up to 15 alphanumeric characters and spaces (letters will be converted to uppercase)' oninput=\"this.value = this.value.replace(/[^A-Z0-9 ]/gi, '').toUpperCase();\">\n";
+	echo "</td>\n";
+	echo "</tr>\n";
+
+	//Portout PIN
+	echo "<tr>\n";
+	echo "<td class='vncell' valign='top' align='left' nowrap='nowrap'>\n";
+	echo "	".$text['label-portout-pin']."\n";
+	echo "</td>\n";
+	echo "<td class='vtable' align='left'>\n";
+	echo "	<input type='text' class='formfld' name='portout_pin' value='".escape($portout_pin)."' maxlength='10'>\n";
+	echo "</td>\n";
+	echo "</tr>\n";
+
+	//Notes
+	echo "<tr>\n";
+	echo "<td class='vncell' valign='top' align='left' nowrap='nowrap'>\n";
+	echo "	".$text['label-notes']."\n";
+	echo "</td>\n";
+	echo "<td class='vtable' align='left'>\n";
+	echo "	<input type='text' class='formfld' name='notes' value='".escape($notes)."' maxlength='255'>\n";
+	echo "</td>\n";
+	echo "</tr>\n";
+
+	//SMS
+	echo "<tr>\n";
+	echo "<td class='vncell' valign='top' align='left' nowrap='nowrap'>\n";
+	echo "	".$text['label-sms']."\n";
+	echo "</td>\n";
+	echo "<td class='vtable' align='left'>\n";
+	echo "	<select class='formfld' name='sms'>\n";
+	echo "		<option value='0'".($sms ? '' : " selected").">".$text['label-disabled']."</option>\n";
+	echo "		<option value='1'".($sms ? " selected" : '').">".$text['label-enabled']."</option>\n";
+	echo "	</select>\n";
+	echo "</td>\n";
+	echo "</tr>\n";
+
+	//MMS
+	echo "<tr>\n";
+	echo "<td class='vncell' valign='top' align='left' nowrap='nowrap'>\n";
+	echo "	".$text['label-mms']."\n";
+	echo "</td>\n";
+	echo "<td class='vtable' align='left'>\n";
+	echo "	<select class='formfld' name='mms'>\n";
+	echo "		<option value='0'".($mms ? '' : " selected").">".$text['label-disabled']."</option>\n";
+	echo "		<option value='1'".($mms ? " selected" : '').">".$text['label-enabled']."</option>\n";
+	echo "	</select>\n";
+	echo "</td>\n";
+	echo "</tr>\n";
+
+	echo "</table>\n";
 	echo "</div>\n";
 	echo "<br />\n";
 
