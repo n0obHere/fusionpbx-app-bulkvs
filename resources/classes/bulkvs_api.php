@@ -96,7 +96,9 @@ class bulkvs_api {
 
 		if ($method === 'POST' || $method === 'PUT') {
 			if ($data !== null) {
-				curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
+				$json_data = json_encode($data);
+				error_log("BulkVS API Request - Method: $method, URL: $url, Data: " . $json_data);
+				curl_setopt($ch, CURLOPT_POSTFIELDS, $json_data);
 			}
 			if ($method === 'POST') {
 				curl_setopt($ch, CURLOPT_POST, true);
@@ -119,6 +121,9 @@ class bulkvs_api {
 		$error = curl_error($ch);
 		curl_close($ch);
 
+		// Log response for debugging
+		error_log("BulkVS API Response - HTTP Code: $http_code, Response: " . substr($response, 0, 500));
+
 		if ($error) {
 			throw new Exception("BulkVS API Error: " . $error);
 		}
@@ -133,11 +138,23 @@ class bulkvs_api {
 
 		$result = json_decode($response, true);
 		if (json_last_error() !== JSON_ERROR_NONE) {
-			throw new Exception("BulkVS API Error: Invalid JSON response - " . json_last_error_msg());
+			throw new Exception("BulkVS API Error: Invalid JSON response - " . json_last_error_msg() . " (Response: " . substr($response, 0, 200) . ")");
 		}
 
 		if ($http_code >= 400) {
-			$error_msg = isset($result['message']) ? $result['message'] : "HTTP Error $http_code";
+			// Try to extract error message from various possible fields
+			$error_msg = "HTTP Error $http_code";
+			if (isset($result['message'])) {
+				$error_msg = $result['message'];
+			} elseif (isset($result['Description'])) {
+				$error_msg = $result['Description'];
+			} elseif (isset($result['error'])) {
+				$error_msg = $result['error'];
+			} elseif (isset($result['Code']) && isset($result['Description'])) {
+				$error_msg = "Code " . $result['Code'] . ": " . $result['Description'];
+			} elseif (!empty($result)) {
+				$error_msg = "Error: " . json_encode($result);
+			}
 			throw new Exception("BulkVS API Error: " . $error_msg);
 		}
 
@@ -239,7 +256,7 @@ class bulkvs_api {
 			'Trunk Group' => $trunk_group,
 			'Sms' => false,
 			'Mms' => false,
-			'Webhook' => '' // Send empty webhook field
+			'Webhook' => '' // Send empty webhook field as required
 		];
 		
 		// Only add fields if they are provided (not null and not empty)
@@ -252,6 +269,9 @@ class bulkvs_api {
 		if ($reference_id !== null && trim($reference_id) !== '') {
 			$data['ReferenceID'] = trim($reference_id);
 		}
+		
+		// Log the data being sent
+		error_log("BulkVS purchaseNumber() - Sending data: " . json_encode($data));
 		
 		return $this->request('POST', '/orderTn', $data);
 	}

@@ -66,85 +66,130 @@
 	}
 
 //process purchase
-	if ($search_action == 'purchase' && !empty($purchase_tn) && !empty($purchase_domain_uuid)) {
-		if (!permission_exists('bulkvs_purchase')) {
+	if ($search_action == 'purchase') {
+		// Debug: Log purchase attempt
+		error_log("BulkVS Purchase Attempt - POST data: " . print_r($_POST, true));
+		error_log("BulkVS Purchase Attempt - purchase_tn: " . ($purchase_tn ?? 'empty'));
+		error_log("BulkVS Purchase Attempt - purchase_domain_uuid: " . ($purchase_domain_uuid ?? 'empty'));
+		
+		if (empty($purchase_tn)) {
+			message::add("Purchase failed: Telephone number is required", 'negative');
+		} elseif (empty($purchase_domain_uuid)) {
+			message::add("Purchase failed: Domain is required", 'negative');
+		} elseif (!permission_exists('bulkvs_purchase')) {
 			message::add("Access denied", 'negative');
 			header("Location: bulkvs_search.php");
 			return;
-		}
-		
-		// Validate token
-		if (!$object->validate($_SERVER['PHP_SELF'])) {
-			message::add("Invalid token", 'negative');
-			header("Location: bulkvs_search.php");
-			return;
-		}
-
-		try {
-			require_once "resources/classes/bulkvs_api.php";
-			$bulkvs_api = new bulkvs_api($settings);
-			$trunk_group = $settings->get('bulkvs', 'trunk_group', '');
-			
-			if (empty($trunk_group)) {
-				throw new Exception("Trunk Group must be configured in default settings");
+		} else {
+			// Validate token
+			if (!$object->validate($_SERVER['PHP_SELF'])) {
+				message::add("Invalid token", 'negative');
+				header("Location: bulkvs_search.php");
+				return;
 			}
 
-			// Get purchase form fields
-			$purchase_lidb = isset($_POST['purchase_lidb']) && trim($_POST['purchase_lidb']) !== '' ? trim($_POST['purchase_lidb']) : null;
-			$purchase_portout_pin = isset($_POST['purchase_portout_pin']) && trim($_POST['purchase_portout_pin']) !== '' ? trim($_POST['purchase_portout_pin']) : null;
-			$purchase_reference_id = isset($_POST['purchase_reference_id']) && trim($_POST['purchase_reference_id']) !== '' ? trim($_POST['purchase_reference_id']) : null;
+			try {
+				require_once "resources/classes/bulkvs_api.php";
+				$bulkvs_api = new bulkvs_api($settings);
+				$trunk_group = $settings->get('bulkvs', 'trunk_group', '');
+				
+				if (empty($trunk_group)) {
+					throw new Exception("Trunk Group must be configured in default settings");
+				}
 
-			// Purchase the number
-			$bulkvs_api->purchaseNumber($purchase_tn, $trunk_group, $purchase_lidb, $purchase_portout_pin, $purchase_reference_id);
+				// Get purchase form fields
+				$purchase_lidb = isset($_POST['purchase_lidb']) && trim($_POST['purchase_lidb']) !== '' ? trim($_POST['purchase_lidb']) : null;
+				$purchase_portout_pin = isset($_POST['purchase_portout_pin']) && trim($_POST['purchase_portout_pin']) !== '' ? trim($_POST['purchase_portout_pin']) : null;
+				$purchase_reference_id = isset($_POST['purchase_reference_id']) && trim($_POST['purchase_reference_id']) !== '' ? trim($_POST['purchase_reference_id']) : null;
 
-			// Create destination in FusionPBX
-			require_once dirname(__DIR__, 2) . "/app/destinations/resources/classes/destinations.php";
-			$destination = new destinations(['database' => $database, 'domain_uuid' => $purchase_domain_uuid]);
-			
-			$destination_uuid = uuid();
-			$destination_number = preg_replace('/[^0-9]/', '', $purchase_tn); // Remove non-numeric characters
-			
-			// Get domain name for context
-			$sql = "select domain_name from v_domains where domain_uuid = :domain_uuid ";
-			$parameters['domain_uuid'] = $purchase_domain_uuid;
-			$domain_name = $database->select($sql, $parameters, 'column');
-			unset($sql, $parameters);
+				// Log the purchase request data
+				error_log("BulkVS Purchase Request - TN: $purchase_tn, Trunk Group: $trunk_group, LIDB: " . ($purchase_lidb ?? 'null') . ", Portout PIN: " . ($purchase_portout_pin ?? 'null') . ", Reference ID: " . ($purchase_reference_id ?? 'null'));
 
-			// Prepare destination array
-			$array['destinations'][0]['destination_uuid'] = $destination_uuid;
-			$array['destinations'][0]['domain_uuid'] = $purchase_domain_uuid;
-			$array['destinations'][0]['destination_type'] = 'inbound';
-			$array['destinations'][0]['destination_number'] = $destination_number;
-			$array['destinations'][0]['destination_context'] = $domain_name ?? 'public';
-			$array['destinations'][0]['destination_enabled'] = 'true';
-			$array['destinations'][0]['destination_description'] = 'BulkVS: ' . $purchase_tn;
+				// Purchase the number
+				$purchase_result = $bulkvs_api->purchaseNumber($purchase_tn, $trunk_group, $purchase_lidb, $purchase_portout_pin, $purchase_reference_id);
+				
+				// Log the purchase response
+				error_log("BulkVS Purchase Response: " . json_encode($purchase_result));
+				
+				// Check if purchase was successful
+				if (empty($purchase_result)) {
+					throw new Exception("Purchase completed but received empty response from API");
+				}
+				
+				// Check for error status in response
+				if (isset($purchase_result['Status']) && strtolower($purchase_result['Status']) === 'failed') {
+					$error_code = $purchase_result['Code'] ?? 'Unknown';
+					$error_desc = $purchase_result['Description'] ?? 'Purchase failed';
+					throw new Exception("Purchase failed: Code $error_code - $error_desc");
+				}
 
-			// Grant temporary permissions
-			$p = permissions::new();
-			$p->add('destination_add', 'temp');
-			$p->add('dialplan_add', 'temp');
-			$p->add('dialplan_detail_add', 'temp');
+				// Create destination in FusionPBX
+				require_once dirname(__DIR__, 2) . "/app/destinations/resources/classes/destinations.php";
+				$destination = new destinations(['database' => $database, 'domain_uuid' => $purchase_domain_uuid]);
+				
+				$destination_uuid = uuid();
+				$destination_number = preg_replace('/[^0-9]/', '', $purchase_tn); // Remove non-numeric characters
+				
+				// Get domain name for context
+				$sql = "select domain_name from v_domains where domain_uuid = :domain_uuid ";
+				$parameters['domain_uuid'] = $purchase_domain_uuid;
+				$domain_name = $database->select($sql, $parameters, 'column');
+				unset($sql, $parameters);
 
-			// Save the destination
-			$database->app_name = 'destinations';
-			$database->app_uuid = '5ec89622-b19c-3559-64f0-afde802ab139';
-			$database->save($array);
+				// Prepare destination array
+				$array['destinations'][0]['destination_uuid'] = $destination_uuid;
+				$array['destinations'][0]['domain_uuid'] = $purchase_domain_uuid;
+				$array['destinations'][0]['destination_type'] = 'inbound';
+				$array['destinations'][0]['destination_number'] = $destination_number;
+				$array['destinations'][0]['destination_context'] = $domain_name ?? 'public';
+				$array['destinations'][0]['destination_enabled'] = 'true';
+				$array['destinations'][0]['destination_description'] = 'BulkVS: ' . $purchase_tn;
 
-			// Revoke temporary permissions
-			$p->delete('destination_add', 'temp');
-			$p->delete('dialplan_add', 'temp');
-			$p->delete('dialplan_detail_add', 'temp');
+				// Grant temporary permissions
+				$p = permissions::new();
+				$p->add('destination_add', 'temp');
+				$p->add('dialplan_add', 'temp');
+				$p->add('dialplan_detail_add', 'temp');
 
-			message::add($text['message-purchase-success']);
-			// Redirect to destination edit page
-			$redirect_url = "../destinations/destination_edit.php?id=".urlencode($destination_uuid);
-			header("Location: ".$redirect_url);
-			return;
-		} catch (Exception $e) {
-			$error_details = $e->getMessage();
-			// Log more details for debugging
-			error_log("BulkVS Purchase Error: " . $error_details);
-			message::add($text['message-api-error'] . ': ' . $error_details, 'negative');
+				// Save the destination
+				$database->app_name = 'destinations';
+				$database->app_uuid = '5ec89622-b19c-3559-64f0-afde802ab139';
+				$database->save($array);
+
+				// Revoke temporary permissions
+				$p->delete('destination_add', 'temp');
+				$p->delete('dialplan_add', 'temp');
+				$p->delete('dialplan_detail_add', 'temp');
+
+				message::add($text['message-purchase-success']);
+				// Redirect to destination edit page
+				$redirect_url = "../destinations/destination_edit.php?id=".urlencode($destination_uuid);
+				header("Location: ".$redirect_url);
+				return;
+			} catch (Exception $e) {
+				$error_details = $e->getMessage();
+				// Log more details for debugging
+				error_log("BulkVS Purchase Error: " . $error_details);
+				error_log("BulkVS Purchase POST data: " . print_r($_POST, true));
+				error_log("BulkVS Purchase Exception trace: " . $e->getTraceAsString());
+				message::add($text['message-api-error'] . ': ' . $error_details, 'negative');
+				// Don't redirect on error - let the error message display
+				// Set search_action to 'search' so results are displayed
+				$search_action = 'search';
+				$search_query = $_POST['search'] ?? '';
+				// Re-parse search query
+				$npa = '';
+				$nxx = '';
+				if (!empty($search_query)) {
+					$search_query_clean = preg_replace('/[^0-9]/', '', $search_query);
+					if (strlen($search_query_clean) == 3) {
+						$npa = $search_query_clean;
+					} elseif (strlen($search_query_clean) == 6) {
+						$npa = substr($search_query_clean, 0, 3);
+						$nxx = substr($search_query_clean, 3, 3);
+					}
+				}
+			}
 		}
 	}
 
@@ -155,7 +200,8 @@
 	$paging_controls = '';
 	$paging_controls_mini = '';
 	
-	if ($search_action == 'search' && !empty($npa)) {
+	// If purchase failed, ensure we still show search results
+	if (($search_action == 'search' || $search_action == 'purchase') && !empty($npa)) {
 		try {
 			require_once "resources/classes/bulkvs_api.php";
 			$bulkvs_api = new bulkvs_api($settings);
@@ -352,7 +398,7 @@
 	echo "<br />\n";
 
 	// Search results
-	if ($search_action == 'search') {
+	if ($search_action == 'search' || $search_action == 'purchase') {
 		if (!empty($error_message)) {
 			echo "<div class='alert alert-warning'>".escape($error_message)."</div>\n";
 			echo "<br />\n";
@@ -384,8 +430,23 @@
 				echo "	<td>".escape($rate_center)."&nbsp;</td>\n";
 				echo "	<td>".escape($state)."&nbsp;</td>\n";
 				if (permission_exists('bulkvs_purchase')) {
+					$tn_clean = preg_replace('/[^0-9]/', '', $tn);
 					echo "	<td class='action-button'>\n";
-					echo "		<form method='post' action='' style='display: inline;'>\n";
+					echo "		<form method='post' action='' id='purchase_form_".$tn_clean."' style='display: inline;' onsubmit=\"\n";
+					echo "			var domain = document.getElementById('purchase_domain_uuid');\n";
+					echo "			if (!domain || !domain.value) {\n";
+					echo "				alert('Please select a domain');\n";
+					echo "				return false;\n";
+					echo "			}\n";
+					echo "			document.getElementById('purchase_domain_uuid_".$tn_clean."').value = domain.value;\n";
+					echo "			var lidbEl = document.getElementById('purchase_lidb');\n";
+					echo "			if (lidbEl) document.getElementById('purchase_lidb_".$tn_clean."').value = lidbEl.value || '';\n";
+					echo "			var pinEl = document.getElementById('purchase_portout_pin');\n";
+					echo "			if (pinEl) document.getElementById('purchase_portout_pin_".$tn_clean."').value = pinEl.value || '';\n";
+					echo "			var refEl = document.getElementById('purchase_reference_id');\n";
+					echo "			if (refEl) document.getElementById('purchase_reference_id_".$tn_clean."').value = refEl.value || '';\n";
+					echo "			return true;\n";
+					echo "		\">\n";
 					echo "			<input type='hidden' name='action' value='purchase'>\n";
 					echo "			<input type='hidden' name='purchase_tn' value='".escape($tn)."'>\n";
 					echo "			<input type='hidden' name='search' value='".escape($search_query)."'>\n";
@@ -395,12 +456,12 @@
 					if (!empty($filter)) {
 						echo "			<input type='hidden' name='filter' value='".escape($filter)."'>\n";
 					}
-					echo "			<input type='hidden' name='purchase_domain_uuid' id='purchase_domain_uuid_".preg_replace('/[^0-9]/', '', $tn)."' value=''>\n";
-					echo "			<input type='hidden' name='purchase_lidb' id='purchase_lidb_".preg_replace('/[^0-9]/', '', $tn)."' value=''>\n";
-					echo "			<input type='hidden' name='purchase_portout_pin' id='purchase_portout_pin_".preg_replace('/[^0-9]/', '', $tn)."' value=''>\n";
-					echo "			<input type='hidden' name='purchase_reference_id' id='purchase_reference_id_".preg_replace('/[^0-9]/', '', $tn)."' value=''>\n";
+					echo "			<input type='hidden' name='purchase_domain_uuid' id='purchase_domain_uuid_".$tn_clean."' value=''>\n";
+					echo "			<input type='hidden' name='purchase_lidb' id='purchase_lidb_".$tn_clean."' value=''>\n";
+					echo "			<input type='hidden' name='purchase_portout_pin' id='purchase_portout_pin_".$tn_clean."' value=''>\n";
+					echo "			<input type='hidden' name='purchase_reference_id' id='purchase_reference_id_".$tn_clean."' value=''>\n";
 					echo "			<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
-					echo "			<input type='submit' class='btn' value='".$text['button-purchase']."' onclick=\"var domain = document.getElementById('purchase_domain_uuid'); if (!domain || !domain.value) { alert('Please select a domain'); event.preventDefault(); return false; } document.getElementById('purchase_domain_uuid_".preg_replace('/[^0-9]/', '', $tn)."').value = domain.value; document.getElementById('purchase_lidb_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_lidb') ? document.getElementById('purchase_lidb').value : ''; document.getElementById('purchase_portout_pin_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_portout_pin') ? document.getElementById('purchase_portout_pin').value : ''; document.getElementById('purchase_reference_id_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_reference_id') ? document.getElementById('purchase_reference_id').value : ''; return true;\">\n";
+					echo "			<input type='submit' class='btn' value='".$text['button-purchase']."'>\n";
 					echo "		</form>\n";
 					echo "	</td>\n";
 				}
