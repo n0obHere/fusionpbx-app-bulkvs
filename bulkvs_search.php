@@ -102,8 +102,8 @@
 
 				// Get purchase form fields
 				$purchase_lidb = isset($_POST['purchase_lidb']) ? trim($_POST['purchase_lidb']) : '';
-				// Validate and sanitize LIDB: uppercase, alphanumeric only, max 15 characters
-				$purchase_lidb = preg_replace('/[^A-Z0-9]/', '', strtoupper($purchase_lidb));
+				// Validate and sanitize LIDB: uppercase, alphanumeric and spaces only, max 15 characters
+				$purchase_lidb = preg_replace('/[^A-Z0-9 ]/', '', strtoupper($purchase_lidb));
 				$purchase_lidb = substr($purchase_lidb, 0, 15);
 				$purchase_portout_pin = isset($_POST['purchase_portout_pin']) && trim($_POST['purchase_portout_pin']) !== '' ? trim($_POST['purchase_portout_pin']) : '';
 				$purchase_reference_id = isset($_POST['purchase_reference_id']) ? trim($_POST['purchase_reference_id']) : '';
@@ -366,7 +366,7 @@
 		$purchase_lidb = $_POST['purchase_lidb'] ?? $_GET['purchase_lidb'] ?? '';
 		// Ensure LIDB is uppercase and sanitized for display
 		if (!empty($purchase_lidb)) {
-			$purchase_lidb = preg_replace('/[^A-Z0-9]/', '', strtoupper($purchase_lidb));
+			$purchase_lidb = preg_replace('/[^A-Z0-9 ]/', '', strtoupper($purchase_lidb));
 			$purchase_lidb = substr($purchase_lidb, 0, 15);
 		}
 		$purchase_portout_pin = $_POST['purchase_portout_pin'] ?? $_GET['purchase_portout_pin'] ?? $random_pin;
