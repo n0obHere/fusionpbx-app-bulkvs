@@ -134,17 +134,19 @@
 	require_once "resources/header.php";
 
 //show the content
+	echo "<form name='frm' id='frm' method='post' action=''>\n";
+	echo "<input type='hidden' name='action' value='save'>\n";
+	echo "<input type='hidden' name='tn' value='".escape($tn)."'>\n";
+	echo "<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
+
 	echo "<div class='action_bar' id='action_bar'>\n";
 	echo "	<div class='heading'><b>".$text['title-bulkvs-number-edit']."</b></div>\n";
 	echo "	<div class='actions'>\n";
 	echo button::create(['type'=>'button','label'=>$text['button-back'],'icon'=>'arrow-left','link'=>'bulkvs_numbers.php']);
+	echo button::create(['type'=>'submit','label'=>$text['button-save'],'icon'=>$settings->get('theme', 'button_icon_save'),'id'=>'btn_save']);
 	echo "	</div>\n";
 	echo "	<div style='clear: both;'></div>\n";
 	echo "</div>\n";
-
-	echo "<form name='frm' id='frm' method='post' action=''>\n";
-	echo "<input type='hidden' name='action' value='save'>\n";
-	echo "<input type='hidden' name='tn' value='".escape($tn)."'>\n";
 
 	echo "<div class='card'>\n";
 	echo "	<div class='subheading'>".$text['label-telephone-number'].": ".escape($tn)."</div>\n";
@@ -190,13 +192,6 @@
 	echo "</div>\n";
 	echo "<br />\n";
 
-	echo "<div class='card'>\n";
-	echo "	<div class='content'>\n";
-	echo "		<input type='submit' class='btn' value='".$text['button-save']."'>\n";
-	echo "	</div>\n";
-	echo "</div>\n";
-
-	echo "<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
 	echo "</form>\n";
 
 //include the footer
