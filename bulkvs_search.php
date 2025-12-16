@@ -156,7 +156,6 @@
 			// Handle API response - API returns array directly, not wrapped in 'data'
 			if (is_array($api_response)) {
 				$search_results = $api_response;
-				$num_rows = count($search_results);
 			}
 		} catch (Exception $e) {
 			$error_message = $e->getMessage();
@@ -164,9 +163,38 @@
 		}
 	}
 
+//get filter parameter
+	$filter = $_GET['filter'] ?? $_POST['filter'] ?? '';
+
+//apply server-side filter to all search results
+	if ($search_action == 'search' && !empty($filter) && !empty($search_results)) {
+		$filter_lower = strtolower($filter);
+		$search_results = array_filter($search_results, function($result) use ($filter_lower) {
+			$tn = strtolower($result['TN'] ?? $result['tn'] ?? $result['telephoneNumber'] ?? '');
+			$rate_center = strtolower($result['Rate Center'] ?? $result['rateCenter'] ?? '');
+			$lata = strtolower($result['LATA'] ?? $result['lata'] ?? '');
+			$state = strtolower($result['State'] ?? $result['state'] ?? '');
+			$tier = strtolower($result['Tier'] ?? $result['tier'] ?? '');
+			
+			// Check if filter matches any field
+			return (
+				strpos($tn, $filter_lower) !== false ||
+				strpos($rate_center, $filter_lower) !== false ||
+				strpos($lata, $filter_lower) !== false ||
+				strpos($state, $filter_lower) !== false ||
+				strpos($tier, $filter_lower) !== false
+			);
+		});
+		$search_results = array_values($search_results); // Re-index array
+	}
+
 //prepare to page the results
+	$num_rows = count($search_results);
 	$rows_per_page = $settings->get('domain', 'paging', 50);
 	$param = "&search=".urlencode($search_query)."&action=search";
+	if (!empty($filter)) {
+		$param .= "&filter=".urlencode($filter);
+	}
 	if (!empty($_GET['page'])) {
 		$page = $_GET['page'];
 	}
@@ -211,9 +239,16 @@
 	echo "</div>\n";
 	echo "	<div class='actions'>\n";
 	echo button::create(['type'=>'button','label'=>$text['button-back'],'icon'=>'arrow-left','link'=>'bulkvs_numbers.php']);
-	if (!empty($paginated_results)) {
-		echo "		<input type='text' id='table_filter' class='txt list-search' placeholder='Filter results...' style='margin-left: 15px; width: 200px;' onkeyup='filterTable()'>";
-		echo "		<span id='filter_count' style='margin-left: 5px; color: #666; font-size: 12px;'></span>";
+	if ($search_action == 'search' && !empty($search_results)) {
+		echo "		<form method='get' action='' style='display: inline; margin-left: 15px;'>\n";
+		echo "			<input type='hidden' name='action' value='search'>\n";
+		echo "			<input type='hidden' name='search' value='".escape($search_query)."'>\n";
+		echo "			<input type='text' name='filter' class='txt list-search' placeholder='Filter results...' value='".escape($filter)."' style='width: 200px;'>\n";
+		echo "			<input type='submit' class='btn' value='Filter' style='margin-left: 5px;'>\n";
+		if (!empty($filter)) {
+			echo "			<a href='?action=search&search=".urlencode($search_query)."' class='btn' style='margin-left: 5px;'>Clear</a>\n";
+		}
+		echo "		</form>\n";
 	}
 	if ($paging_controls_mini != '') {
 		echo "<span style='margin-left: 15px;'>".$paging_controls_mini."</span>";
@@ -313,57 +348,6 @@
 	}
 
 	echo "<br />\n";
-
-//add client-side table filtering script
-	if ($search_action == 'search' && !empty($paginated_results)) {
-		$total_on_page = count($paginated_results);
-		echo "<script>\n";
-		echo "var totalRows = ".$total_on_page.";\n";
-		echo "function filterTable() {\n";
-		echo "	var input = document.getElementById('table_filter');\n";
-		echo "	var filter = input.value.toLowerCase();\n";
-		echo "	var table = document.getElementById('results_table');\n";
-		echo "	var tr = table.getElementsByTagName('tr');\n";
-		echo "	var visibleCount = 0;\n";
-		echo "	\n";
-		echo "	// Start from index 1 to skip header row\n";
-		echo "	for (var i = 1; i < tr.length; i++) {\n";
-		echo "		var td = tr[i].getElementsByTagName('td');\n";
-		echo "		var found = false;\n";
-		echo "		\n";
-		echo "		// Check each cell in the row (skip last column if it's action button)\n";
-		echo "		for (var j = 0; j < td.length - 1; j++) {\n";
-		echo "			if (td[j]) {\n";
-		echo "				var txtValue = td[j].textContent || td[j].innerText;\n";
-		echo "				if (txtValue.toLowerCase().indexOf(filter) > -1) {\n";
-		echo "					found = true;\n";
-		echo "					break;\n";
-		echo "				}\n";
-		echo "			}\n";
-		echo "		}\n";
-		echo "		\n";
-		echo "		if (found) {\n";
-		echo "			tr[i].style.display = '';\n";
-		echo "			visibleCount++;\n";
-		echo "		} else {\n";
-		echo "			tr[i].style.display = 'none';\n";
-		echo "		}\n";
-		echo "	}\n";
-		echo "	\n";
-		echo "	// Update filter count\n";
-		echo "	var countElement = document.getElementById('filter_count');\n";
-		echo "	if (filter === '') {\n";
-		echo "		countElement.textContent = '';\n";
-		echo "	} else {\n";
-		echo "		countElement.textContent = '(' + visibleCount + '/' + totalRows + ')';\n";
-		echo "	}\n";
-		echo "}\n";
-		echo "// Initialize count on page load\n";
-		echo "document.addEventListener('DOMContentLoaded', function() {\n";
-		echo "	filterTable();\n";
-		echo "});\n";
-		echo "</script>\n";
-	}
 
 //include the footer
 	require_once "resources/footer.php";

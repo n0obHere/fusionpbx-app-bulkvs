@@ -71,10 +71,47 @@
 		message::add($text['message-api-error'] . ': ' . $error_message, 'negative');
 	}
 
+//get filter parameter
+	$filter = $_GET['filter'] ?? $_POST['filter'] ?? '';
+
+//apply server-side filter to all numbers
+	if (!empty($filter)) {
+		$filter_lower = strtolower($filter);
+		$numbers = array_filter($numbers, function($number) use ($filter_lower) {
+			$tn = strtolower($number['TN'] ?? $number['tn'] ?? $number['telephoneNumber'] ?? '');
+			$status = strtolower($number['Status'] ?? $number['status'] ?? '');
+			$rate_center = '';
+			$tier = '';
+			$lidb = strtolower($number['Lidb'] ?? $number['lidb'] ?? '');
+			$notes = strtolower($number['ReferenceID'] ?? $number['referenceID'] ?? '');
+			
+			// Extract nested fields
+			if (isset($number['TN Details']) && is_array($number['TN Details'])) {
+				$tn_details = $number['TN Details'];
+				$rate_center = strtolower($tn_details['Rate Center'] ?? $tn_details['rate_center'] ?? '');
+				$tier = strtolower($tn_details['Tier'] ?? $tn_details['tier'] ?? '');
+			}
+			
+			// Check if filter matches any field
+			return (
+				strpos($tn, $filter_lower) !== false ||
+				strpos($status, $filter_lower) !== false ||
+				strpos($rate_center, $filter_lower) !== false ||
+				strpos($tier, $filter_lower) !== false ||
+				strpos($lidb, $filter_lower) !== false ||
+				strpos($notes, $filter_lower) !== false
+			);
+		});
+		$numbers = array_values($numbers); // Re-index array
+	}
+
 //prepare to page the results
 	$num_rows = count($numbers);
 	$rows_per_page = $settings->get('domain', 'paging', 50);
 	$param = "";
+	if (!empty($filter)) {
+		$param = "&filter=".urlencode($filter);
+	}
 	if (!empty($_GET['page'])) {
 		$page = $_GET['page'];
 	}
@@ -197,9 +234,14 @@
 	if (permission_exists('bulkvs_search')) {
 		echo button::create(['type'=>'button','label'=>$text['title-bulkvs-search'],'icon'=>'search','link'=>'bulkvs_search.php']);
 	}
-	if (!empty($paginated_numbers)) {
-		echo "		<input type='text' id='table_filter' class='txt list-search' placeholder='Filter results...' style='margin-left: 15px; width: 200px;' onkeyup='filterTable()'>";
-		echo "		<span id='filter_count' style='margin-left: 5px; color: #666; font-size: 12px;'></span>";
+	if (!empty($numbers)) {
+		echo "		<form method='get' action='' style='display: inline; margin-left: 15px;'>\n";
+		echo "			<input type='text' name='filter' class='txt list-search' placeholder='Filter results...' value='".escape($filter)."' style='width: 200px;'>\n";
+		echo "			<input type='submit' class='btn' value='Filter' style='margin-left: 5px;'>\n";
+		if (!empty($filter)) {
+			echo "			<a href='bulkvs_numbers.php' class='btn' style='margin-left: 5px;'>Clear</a>\n";
+		}
+		echo "		</form>\n";
 	}
 	if ($paging_controls_mini != '') {
 		echo "<span style='margin-left: 15px;'>".$paging_controls_mini."</span>";
@@ -333,57 +375,6 @@
 	}
 
 	echo "<br />\n";
-
-//add client-side table filtering script
-	if (!empty($paginated_numbers)) {
-		$total_on_page = count($paginated_numbers);
-		echo "<script>\n";
-		echo "var totalRows = ".$total_on_page.";\n";
-		echo "function filterTable() {\n";
-		echo "	var input = document.getElementById('table_filter');\n";
-		echo "	var filter = input.value.toLowerCase();\n";
-		echo "	var table = document.getElementById('numbers_table');\n";
-		echo "	var tr = table.getElementsByTagName('tr');\n";
-		echo "	var visibleCount = 0;\n";
-		echo "	\n";
-		echo "	// Start from index 1 to skip header row\n";
-		echo "	for (var i = 1; i < tr.length; i++) {\n";
-		echo "		var td = tr[i].getElementsByTagName('td');\n";
-		echo "		var found = false;\n";
-		echo "		\n";
-		echo "		// Check each cell in the row\n";
-		echo "		for (var j = 0; j < td.length; j++) {\n";
-		echo "			if (td[j]) {\n";
-		echo "				var txtValue = td[j].textContent || td[j].innerText;\n";
-		echo "				if (txtValue.toLowerCase().indexOf(filter) > -1) {\n";
-		echo "					found = true;\n";
-		echo "					break;\n";
-		echo "				}\n";
-		echo "			}\n";
-		echo "		}\n";
-		echo "		\n";
-		echo "		if (found) {\n";
-		echo "			tr[i].style.display = '';\n";
-		echo "			visibleCount++;\n";
-		echo "		} else {\n";
-		echo "			tr[i].style.display = 'none';\n";
-		echo "		}\n";
-		echo "	}\n";
-		echo "	\n";
-		echo "	// Update filter count\n";
-		echo "	var countElement = document.getElementById('filter_count');\n";
-		echo "	if (filter === '') {\n";
-		echo "		countElement.textContent = '';\n";
-		echo "	} else {\n";
-		echo "		countElement.textContent = '(' + visibleCount + '/' + totalRows + ')';\n";
-		echo "	}\n";
-		echo "}\n";
-		echo "// Initialize count on page load\n";
-		echo "document.addEventListener('DOMContentLoaded', function() {\n";
-		echo "	filterTable();\n";
-		echo "});\n";
-		echo "</script>\n";
-	}
 
 //include the footer
 	require_once "resources/footer.php";
