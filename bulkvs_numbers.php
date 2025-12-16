@@ -177,6 +177,7 @@
 			$sql = "select distinct destination_number, domain_uuid, destination_uuid ";
 			$sql .= "from v_destinations ";
 			$sql .= "where destination_number in (" . implode(', ', $placeholders) . ") ";
+			$sql .= "and destination_type = 'inbound' ";
 			$sql .= "and destination_enabled = 'true' ";
 			$destinations = $database->select($sql, $parameters, 'all');
 			unset($sql, $parameters);
