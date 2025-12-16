@@ -75,6 +75,18 @@
 		error_log("BulkVS Purchase Attempt - purchase_tn: " . ($purchase_tn ?? 'empty'));
 		error_log("BulkVS Purchase Attempt - purchase_domain_uuid: " . ($purchase_domain_uuid ?? 'empty'));
 		
+		// Handle domain selection - if domain name is provided, look up UUID
+		if (!empty($_POST['purchase_domain_name']) && empty($purchase_domain_uuid)) {
+			$domain_name = trim($_POST['purchase_domain_name']);
+			$sql = "select domain_uuid from v_domains where domain_name = :domain_name and domain_enabled = true limit 1";
+			$parameters['domain_name'] = $domain_name;
+			$found_uuid = $database->select($sql, $parameters, 'column');
+			unset($sql, $parameters);
+			if (!empty($found_uuid)) {
+				$purchase_domain_uuid = $found_uuid;
+			}
+		}
+		
 		if (empty($purchase_tn)) {
 			message::add("Purchase failed: Telephone number is required", 'negative');
 		} elseif (empty($purchase_domain_uuid)) {
@@ -337,11 +349,39 @@
 		$purchase_portout_pin = $_POST['purchase_portout_pin'] ?? $_GET['purchase_portout_pin'] ?? $random_pin;
 		$purchase_reference_id = $_POST['purchase_reference_id'] ?? $_GET['purchase_reference_id'] ?? '';
 		$purchase_domain_uuid = $_POST['purchase_domain_uuid'] ?? $_GET['purchase_domain_uuid'] ?? $domain_uuid;
+		// Get domain name for display (prefer POST/GET value, otherwise look up from UUID)
+		$purchase_domain_name = $_POST['purchase_domain_name'] ?? $_GET['purchase_domain_name'] ?? '';
+		if (empty($purchase_domain_name) && !empty($purchase_domain_uuid)) {
+			foreach ($domains as $domain) {
+				if ($domain['domain_uuid'] == $purchase_domain_uuid) {
+					$purchase_domain_name = $domain['domain_name'];
+					break;
+				}
+			}
+		}
 	}
 
 	// Search form with purchase fields
 	echo "<form name='frm' id='frm' method='get'>\n";
 	echo "<input type='hidden' name='action' value='search'>\n";
+	// Preserve purchase field values when searching
+	if (permission_exists('bulkvs_purchase')) {
+		if (!empty($purchase_domain_uuid)) {
+			echo "<input type='hidden' name='purchase_domain_uuid' value='".escape($purchase_domain_uuid)."'>\n";
+		}
+		if (!empty($purchase_domain_name)) {
+			echo "<input type='hidden' name='purchase_domain_name' value='".escape($purchase_domain_name)."'>\n";
+		}
+		if (!empty($purchase_lidb)) {
+			echo "<input type='hidden' name='purchase_lidb' value='".escape($purchase_lidb)."'>\n";
+		}
+		if (!empty($purchase_portout_pin)) {
+			echo "<input type='hidden' name='purchase_portout_pin' value='".escape($purchase_portout_pin)."'>\n";
+		}
+		if (!empty($purchase_reference_id)) {
+			echo "<input type='hidden' name='purchase_reference_id' value='".escape($purchase_reference_id)."'>\n";
+		}
+	}
 
 	echo "<div class='card'>\n";
 	echo "<div class='form_grid'>\n";
@@ -358,18 +398,20 @@
 
 	// Purchase fields (only if permission exists)
 	if (permission_exists('bulkvs_purchase')) {
-		// Domain
+		// Domain (searchable dropdown using datalist)
 		echo "	<div class='form_set'>\n";
 		echo "		<div class='label'>\n";
 		echo "			".$text['label-domain']."\n";
 		echo "		</div>\n";
 		echo "		<div class='field'>\n";
-		echo "			<select name='purchase_domain_uuid' id='purchase_domain_uuid' class='formfld'>\n";
+		echo "			<input type='text' list='domain_list' name='purchase_domain_name' id='purchase_domain_name' class='formfld' value='".escape($purchase_domain_name ?? '')."' placeholder='Type to search domains...' autocomplete='off' onchange=\"updateDomainUuid();\">\n";
+		echo "			<datalist id='domain_list'>\n";
 		foreach ($domains as $domain) {
 			$selected = ($domain['domain_uuid'] == $purchase_domain_uuid) ? 'selected' : '';
-			echo "				<option value='".escape($domain['domain_uuid'])."' ".$selected.">".escape($domain['domain_name'])."</option>\n";
+			echo "				<option value='".escape($domain['domain_name'])."' data-uuid='".escape($domain['domain_uuid'])."' ".$selected.">\n";
 		}
-		echo "			</select>\n";
+		echo "			</datalist>\n";
+		echo "			<input type='hidden' name='purchase_domain_uuid' id='purchase_domain_uuid' value='".escape($purchase_domain_uuid)."'>\n";
 		echo "		</div>\n";
 		echo "	</div>\n";
 
@@ -415,6 +457,35 @@
 	echo "</div>\n";
 	echo "<br />\n";
 	echo "</form>\n";
+
+	// JavaScript to update domain UUID when domain name is selected
+	echo "<script type='text/javascript'>\n";
+	echo "	function updateDomainUuid() {\n";
+	echo "		var domainInput = document.getElementById('purchase_domain_name');\n";
+	echo "		var domainUuidInput = document.getElementById('purchase_domain_uuid');\n";
+	echo "		var domainList = document.getElementById('domain_list');\n";
+	echo "		var selectedValue = domainInput.value;\n";
+	echo "		\n";
+	echo "		// Find matching option in datalist\n";
+	echo "		for (var i = 0; i < domainList.options.length; i++) {\n";
+	echo "			var option = domainList.options[i];\n";
+	echo "			if (option.value === selectedValue) {\n";
+	echo "				domainUuidInput.value = option.getAttribute('data-uuid');\n";
+	echo "				return;\n";
+	echo "			}\n";
+	echo "		}\n";
+	echo "		// If no match found, clear UUID\n";
+	echo "		domainUuidInput.value = '';\n";
+	echo "	}\n";
+	echo "	\n";
+	echo "	// Initialize domain UUID on page load if domain name is set\n";
+	echo "	document.addEventListener('DOMContentLoaded', function() {\n";
+	echo "		var domainInput = document.getElementById('purchase_domain_name');\n";
+	echo "		if (domainInput && domainInput.value) {\n";
+	echo "			updateDomainUuid();\n";
+	echo "		}\n";
+	echo "	});\n";
+	echo "</script>\n";
 
 	// Search results
 	if ($search_action == 'search' || $search_action == 'purchase') {
@@ -468,12 +539,20 @@
 					echo "			<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
 					echo "			<input type='submit' class='btn' value='".$text['button-purchase']."' onclick=\"\n";
 					echo "				event.preventDefault();\n";
-					echo "				var domain = document.getElementById('purchase_domain_uuid');\n";
-					echo "				if (!domain || !domain.value) {\n";
-					echo "					alert('Please select a domain');\n";
-					echo "					return false;\n";
+					echo "				var domainUuid = document.getElementById('purchase_domain_uuid');\n";
+					echo "				var domainName = document.getElementById('purchase_domain_name');\n";
+					echo "				if (!domainUuid || !domainUuid.value) {\n";
+					echo "					// Try to update UUID from domain name\n";
+					echo "					if (domainName && domainName.value) {\n";
+					echo "						updateDomainUuid();\n";
+					echo "						domainUuid = document.getElementById('purchase_domain_uuid');\n";
+					echo "					}\n";
+					echo "					if (!domainUuid || !domainUuid.value) {\n";
+					echo "						alert('Please select a domain');\n";
+					echo "						return false;\n";
+					echo "					}\n";
 					echo "				}\n";
-					echo "				document.getElementById('purchase_domain_uuid_".$tn_clean."').value = domain.value;\n";
+					echo "				document.getElementById('purchase_domain_uuid_".$tn_clean."').value = domainUuid.value;\n";
 					echo "				var lidbEl = document.getElementById('purchase_lidb');\n";
 					echo "				if (lidbEl) document.getElementById('purchase_lidb_".$tn_clean."').value = lidbEl.value || '';\n";
 					echo "				var pinEl = document.getElementById('purchase_portout_pin');\n";
