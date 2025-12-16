@@ -89,8 +89,13 @@
 				throw new Exception("Trunk Group must be configured in default settings");
 			}
 
+			// Get purchase form fields (convert empty strings to null)
+			$purchase_lidb = !empty($_POST['purchase_lidb']) ? $_POST['purchase_lidb'] : null;
+			$purchase_portout_pin = !empty($_POST['purchase_portout_pin']) ? $_POST['purchase_portout_pin'] : null;
+			$purchase_reference_id = !empty($_POST['purchase_reference_id']) ? $_POST['purchase_reference_id'] : null;
+
 			// Purchase the number
-			$bulkvs_api->purchaseNumber($purchase_tn, $trunk_group);
+			$bulkvs_api->purchaseNumber($purchase_tn, $trunk_group, $purchase_lidb, $purchase_portout_pin, $purchase_reference_id);
 
 			// Create destination in FusionPBX
 			require_once dirname(__DIR__, 2) . "/app/destinations/resources/classes/destinations.php";
@@ -313,23 +318,9 @@
 				echo "	<td>".escape($rate_center)."&nbsp;</td>\n";
 				echo "	<td>".escape($state)."&nbsp;</td>\n";
 				if (permission_exists('bulkvs_purchase')) {
+					$modal_id = 'modal-purchase-' . preg_replace('/[^0-9]/', '', $tn);
 					echo "	<td class='action-button'>\n";
-					echo "		<form method='post' action='' style='display: inline;'>\n";
-					echo "			<input type='hidden' name='action' value='purchase'>\n";
-					echo "			<input type='hidden' name='purchase_tn' value='".escape($tn)."'>\n";
-					echo "			<input type='hidden' name='search' value='".escape($search_query)."'>\n";
-					if (isset($_GET['page'])) {
-						echo "			<input type='hidden' name='page' value='".escape($_GET['page'])."'>\n";
-					}
-					echo "			<select name='purchase_domain_uuid' class='formfld' style='width: auto; margin-right: 5px;'>\n";
-					foreach ($domains as $domain) {
-						$selected = ($domain['domain_uuid'] == $domain_uuid) ? 'selected' : '';
-						echo "				<option value='".escape($domain['domain_uuid'])."' ".$selected.">".escape($domain['domain_name'])."</option>\n";
-					}
-					echo "			</select>\n";
-					echo "			<input type='submit' class='btn' value='".$text['button-purchase']."'>\n";
-					echo "			<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
-					echo "		</form>\n";
+					echo button::create(['type'=>'button','label'=>$text['button-purchase'],'icon'=>'plus','id'=>'btn_purchase_'.preg_replace('/[^0-9]/', '', $tn),'onclick'=>"$('#".$modal_id."').dialog('open');"]);
 					echo "	</td>\n";
 				}
 				echo "</tr>\n";
@@ -351,6 +342,83 @@
 	}
 
 	echo "<br />\n";
+
+//add purchase modals for each number
+	if ($search_action == 'search' && !empty($paginated_results) && permission_exists('bulkvs_purchase')) {
+		foreach ($paginated_results as $result) {
+			$tn = $result['TN'] ?? $result['tn'] ?? $result['telephoneNumber'] ?? '';
+			if (empty($tn)) {
+				continue;
+			}
+			
+			$modal_id = 'modal-purchase-' . preg_replace('/[^0-9]/', '', $tn);
+			$btn_id = 'btn_purchase_' . preg_replace('/[^0-9]/', '', $tn);
+			$form_id = 'frm_purchase_' . preg_replace('/[^0-9]/', '', $tn);
+			
+			// Generate random 8-digit portout PIN
+			$random_pin = str_pad(rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
+			
+			echo "<div id='".$modal_id."' class='dialog' style='display: none;'>\n";
+			echo "	<div class='dialog-header'>\n";
+			echo "		<span>".$text['button-purchase'].": ".escape($tn)."</span>\n";
+			echo "	</div>\n";
+			echo "	<div class='dialog-content'>\n";
+			echo "		<form name='".$form_id."' id='".$form_id."' method='post' action=''>\n";
+			echo "			<input type='hidden' name='action' value='purchase'>\n";
+			echo "			<input type='hidden' name='purchase_tn' value='".escape($tn)."'>\n";
+			echo "			<input type='hidden' name='search' value='".escape($search_query)."'>\n";
+			if (isset($_GET['page'])) {
+				echo "			<input type='hidden' name='page' value='".escape($_GET['page'])."'>\n";
+			}
+			if (!empty($filter)) {
+				echo "			<input type='hidden' name='filter' value='".escape($filter)."'>\n";
+			}
+			echo "			<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
+			echo "			<table class='no_hover'>\n";
+			echo "				<tr>\n";
+			echo "					<td class='vncell'>".$text['label-domain']."</td>\n";
+			echo "					<td class='vtable'>\n";
+			echo "						<select name='purchase_domain_uuid' class='formfld' required>\n";
+			echo "							<option value=''>".$text['label-select']."</option>\n";
+			foreach ($domains as $domain) {
+				$selected = ($domain['domain_uuid'] == $domain_uuid) ? 'selected' : '';
+				echo "							<option value='".escape($domain['domain_uuid'])."' ".$selected.">".escape($domain['domain_name'])."</option>\n";
+			}
+			echo "						</select>\n";
+			echo "					</td>\n";
+			echo "				</tr>\n";
+			echo "				<tr>\n";
+			echo "					<td class='vncell'>".$text['label-lidb']."</td>\n";
+			echo "					<td class='vtable'><input type='text' class='formfld' name='purchase_lidb' maxlength='255'></td>\n";
+			echo "				</tr>\n";
+			echo "				<tr>\n";
+			echo "					<td class='vncell'>".$text['label-portout-pin']."</td>\n";
+			echo "					<td class='vtable'><input type='text' class='formfld' name='purchase_portout_pin' value='".escape($random_pin)."' maxlength='10' pattern='[0-9]{6,10}' title='6-10 digit numeric PIN'></td>\n";
+			echo "				</tr>\n";
+			echo "				<tr>\n";
+			echo "					<td class='vncell'>".$text['label-notes']."</td>\n";
+			echo "					<td class='vtable'><input type='text' class='formfld' name='purchase_reference_id' maxlength='255'></td>\n";
+			echo "				</tr>\n";
+			echo "			</table>\n";
+			echo "		</form>\n";
+			echo "	</div>\n";
+			echo "	<div class='dialog-footer'>\n";
+			echo button::create(['type'=>'button','label'=>$text['button-cancel'],'icon'=>'times','collapse'=>'never','onclick'=>"$('#".$modal_id."').dialog('close');"]);
+			echo button::create(['type'=>'button','label'=>$text['button-purchase'],'icon'=>'check','id'=>$btn_id.'_submit','style'=>'float: right; margin-left: 15px;','collapse'=>'never','onclick'=>"if (document.getElementById('".$form_id."').checkValidity()) { document.getElementById('".$form_id."').submit(); } else { document.getElementById('".$form_id."').reportValidity(); }"]);
+			echo "	</div>\n";
+			echo "</div>\n";
+			echo "<script>\n";
+			echo "$(document).ready(function() {\n";
+			echo "	$('#".$modal_id."').dialog({\n";
+			echo "		autoOpen: false,\n";
+			echo "		modal: true,\n";
+			echo "		width: 500,\n";
+			echo "		title: '".$text['button-purchase'].": ".escape($tn)."'\n";
+			echo "	});\n";
+			echo "});\n";
+			echo "</script>\n";
+		}
+	}
 
 //include the footer
 	require_once "resources/footer.php";

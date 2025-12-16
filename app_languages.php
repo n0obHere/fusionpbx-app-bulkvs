@@ -84,6 +84,12 @@ $text['button-back']['en-gb'] = "Back";
 $text['button-edit']['en-us'] = "Edit";
 $text['button-edit']['en-gb'] = "Edit";
 
+$text['button-cancel']['en-us'] = "Cancel";
+$text['button-cancel']['en-gb'] = "Cancel";
+
+$text['label-select']['en-us'] = "Select";
+$text['label-select']['en-gb'] = "Select";
+
 $text['message-update']['en-us'] = "Update Completed";
 $text['message-update']['en-gb'] = "Update Completed";
 

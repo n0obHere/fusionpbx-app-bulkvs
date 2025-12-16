@@ -228,13 +228,30 @@ class bulkvs_api {
 	 * Purchase a number
 	 * @param string $tn Telephone number to purchase
 	 * @param string $trunk_group Trunk group to assign the number to
+	 * @param string $lidb LIDB/CNAM value (optional)
+	 * @param string $portout_pin Portout PIN (optional)
+	 * @param string $reference_id Reference ID/Notes (optional)
 	 * @return array Response data
 	 */
-	public function purchaseNumber($tn, $trunk_group) {
+	public function purchaseNumber($tn, $trunk_group, $lidb = null, $portout_pin = null, $reference_id = null) {
 		$data = [
 			'TN' => $tn,
-			'Trunk Group' => $trunk_group
+			'Trunk Group' => $trunk_group,
+			'Sms' => false,
+			'Mms' => false
 		];
+		
+		// Only add fields if they are provided (not null and not empty)
+		if ($lidb !== null && trim($lidb) !== '') {
+			$data['Lidb'] = trim($lidb);
+		}
+		if ($portout_pin !== null && trim($portout_pin) !== '') {
+			$data['Portout Pin'] = trim($portout_pin);
+		}
+		if ($reference_id !== null && trim($reference_id) !== '') {
+			$data['ReferenceID'] = trim($reference_id);
+		}
+		
 		return $this->request('POST', '/orderTn', $data);
 	}
 }
