@@ -265,22 +265,85 @@
 	echo $text['description-bulkvs-search']."\n";
 	echo "<br /><br />\n";
 
-	// Search form
+	// Search form with purchase fields
 	echo "<div class='card'>\n";
 	echo "	<div class='subheading'>".$text['button-search']."</div>\n";
 	echo "	<div class='content'>\n";
-	echo "		<form method='get' action=''>\n";
-	echo "			<input type='hidden' name='action' value='search'>\n";
-	echo "			<table class='no_hover'>\n";
-	echo "				<tr>\n";
-	echo "					<td class='vncell'>Search</td>\n";
-	echo "					<td class='vtable'><input type='text' class='formfld' name='search' value='".escape($search_query)."' maxlength='6' placeholder='3 digits (area code) or 6 digits (area code + exchange)'></td>\n";
-	echo "				</tr>\n";
-	echo "				<tr>\n";
-	echo "					<td colspan='2'><input type='submit' class='btn' value='".$text['button-search']."'></td>\n";
-	echo "				</tr>\n";
-	echo "			</table>\n";
-	echo "		</form>\n";
+	echo "		<table class='no_hover' style='width: 100%;'>\n";
+	echo "			<tr>\n";
+	echo "								<td style='width: 50%; vertical-align: top;'>\n";
+		echo "					<form method='get' action=''>\n";
+		echo "						<input type='hidden' name='action' value='search'>\n";
+		if (permission_exists('bulkvs_purchase')) {
+			// Preserve purchase field values when searching
+			if (!empty($_GET['purchase_domain_uuid'])) {
+				echo "						<input type='hidden' name='purchase_domain_uuid' value='".escape($_GET['purchase_domain_uuid'])."'>\n";
+			}
+			if (!empty($_GET['purchase_lidb'])) {
+				echo "						<input type='hidden' name='purchase_lidb' value='".escape($_GET['purchase_lidb'])."'>\n";
+			}
+			if (!empty($_GET['purchase_portout_pin'])) {
+				echo "						<input type='hidden' name='purchase_portout_pin' value='".escape($_GET['purchase_portout_pin'])."'>\n";
+			}
+			if (!empty($_GET['purchase_reference_id'])) {
+				echo "						<input type='hidden' name='purchase_reference_id' value='".escape($_GET['purchase_reference_id'])."'>\n";
+			}
+		}
+		echo "						<table class='no_hover'>\n";
+	echo "							<tr>\n";
+	echo "								<td class='vncell'>Search</td>\n";
+	echo "								<td class='vtable'><input type='text' class='formfld' name='search' value='".escape($search_query)."' maxlength='6' placeholder='3 digits (area code) or 6 digits (area code + exchange)'></td>\n";
+	echo "							</tr>\n";
+	echo "							<tr>\n";
+	echo "								<td colspan='2'><input type='submit' class='btn' value='".$text['button-search']."'></td>\n";
+	echo "							</tr>\n";
+	echo "						</table>\n";
+	echo "					</form>\n";
+	echo "				</td>\n";
+	if (permission_exists('bulkvs_purchase')) {
+		// Generate random 8-digit portout PIN (only if not already set)
+		if (empty($_POST['purchase_portout_pin']) && empty($_GET['purchase_portout_pin'])) {
+			$random_pin = str_pad(rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
+		} else {
+			$random_pin = $_POST['purchase_portout_pin'] ?? $_GET['purchase_portout_pin'] ?? '';
+		}
+		// Get values from POST/GET if available (for form persistence)
+		$purchase_lidb = $_POST['purchase_lidb'] ?? $_GET['purchase_lidb'] ?? '';
+		$purchase_portout_pin = $_POST['purchase_portout_pin'] ?? $_GET['purchase_portout_pin'] ?? $random_pin;
+		$purchase_reference_id = $_POST['purchase_reference_id'] ?? $_GET['purchase_reference_id'] ?? '';
+		$purchase_domain_uuid = $_POST['purchase_domain_uuid'] ?? $_GET['purchase_domain_uuid'] ?? $domain_uuid;
+		
+		echo "				<td style='width: 50%; vertical-align: top; padding-left: 20px;'>\n";
+		echo "					<div class='subheading'>Purchase Settings</div>\n";
+		echo "					<table class='no_hover'>\n";
+		echo "						<tr>\n";
+		echo "							<td class='vncell'>".$text['label-domain']."</td>\n";
+		echo "							<td class='vtable'>\n";
+		echo "								<select name='purchase_domain_uuid' id='purchase_domain_uuid' class='formfld'>\n";
+		foreach ($domains as $domain) {
+			$selected = ($domain['domain_uuid'] == $purchase_domain_uuid) ? 'selected' : '';
+			echo "									<option value='".escape($domain['domain_uuid'])."' ".$selected.">".escape($domain['domain_name'])."</option>\n";
+		}
+		echo "								</select>\n";
+		echo "							</td>\n";
+		echo "						</tr>\n";
+		echo "						<tr>\n";
+		echo "							<td class='vncell'>".$text['label-lidb']."</td>\n";
+		echo "							<td class='vtable'><input type='text' class='formfld' name='purchase_lidb' id='purchase_lidb' value='".escape($purchase_lidb)."' maxlength='255'></td>\n";
+		echo "						</tr>\n";
+		echo "						<tr>\n";
+		echo "							<td class='vncell'>".$text['label-portout-pin']."</td>\n";
+		echo "							<td class='vtable'><input type='text' class='formfld' name='purchase_portout_pin' id='purchase_portout_pin' value='".escape($purchase_portout_pin)."' maxlength='10' pattern='[0-9]{6,10}' title='6-10 digit numeric PIN'></td>\n";
+		echo "						</tr>\n";
+		echo "						<tr>\n";
+		echo "							<td class='vncell'>".$text['label-notes']."</td>\n";
+		echo "							<td class='vtable'><input type='text' class='formfld' name='purchase_reference_id' id='purchase_reference_id' value='".escape($purchase_reference_id)."' maxlength='255'></td>\n";
+		echo "						</tr>\n";
+		echo "					</table>\n";
+		echo "				</td>\n";
+	}
+	echo "			</tr>\n";
+	echo "		</table>\n";
 	echo "	</div>\n";
 	echo "</div>\n";
 	echo "<br />\n";
@@ -318,9 +381,24 @@
 				echo "	<td>".escape($rate_center)."&nbsp;</td>\n";
 				echo "	<td>".escape($state)."&nbsp;</td>\n";
 				if (permission_exists('bulkvs_purchase')) {
-					$modal_id = 'modal-purchase-' . preg_replace('/[^0-9]/', '', $tn);
 					echo "	<td class='action-button'>\n";
-					echo button::create(['type'=>'button','label'=>$text['button-purchase'],'icon'=>'plus','id'=>'btn_purchase_'.preg_replace('/[^0-9]/', '', $tn),'onclick'=>"$('#".$modal_id."').dialog('open');"]);
+					echo "		<form method='post' action='' style='display: inline;'>\n";
+					echo "			<input type='hidden' name='action' value='purchase'>\n";
+					echo "			<input type='hidden' name='purchase_tn' value='".escape($tn)."'>\n";
+					echo "			<input type='hidden' name='search' value='".escape($search_query)."'>\n";
+					if (isset($_GET['page'])) {
+						echo "			<input type='hidden' name='page' value='".escape($_GET['page'])."'>\n";
+					}
+					if (!empty($filter)) {
+						echo "			<input type='hidden' name='filter' value='".escape($filter)."'>\n";
+					}
+					echo "			<input type='hidden' name='purchase_domain_uuid' id='purchase_domain_uuid_".preg_replace('/[^0-9]/', '', $tn)."' value=''>\n";
+					echo "			<input type='hidden' name='purchase_lidb' id='purchase_lidb_".preg_replace('/[^0-9]/', '', $tn)."' value=''>\n";
+					echo "			<input type='hidden' name='purchase_portout_pin' id='purchase_portout_pin_".preg_replace('/[^0-9]/', '', $tn)."' value=''>\n";
+					echo "			<input type='hidden' name='purchase_reference_id' id='purchase_reference_id_".preg_replace('/[^0-9]/', '', $tn)."' value=''>\n";
+					echo "			<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
+					echo "			<input type='submit' class='btn' value='".$text['button-purchase']."' onclick=\"var domain = document.getElementById('purchase_domain_uuid'); if (!domain.value) { alert('Please select a domain'); return false; } document.getElementById('purchase_domain_uuid_".preg_replace('/[^0-9]/', '', $tn)."').value = domain.value; document.getElementById('purchase_lidb_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_lidb').value; document.getElementById('purchase_portout_pin_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_portout_pin').value; document.getElementById('purchase_reference_id_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_reference_id').value; return true;\">\n";
+					echo "		</form>\n";
 					echo "	</td>\n";
 				}
 				echo "</tr>\n";
@@ -342,83 +420,6 @@
 	}
 
 	echo "<br />\n";
-
-//add purchase modals for each number
-	if ($search_action == 'search' && !empty($paginated_results) && permission_exists('bulkvs_purchase')) {
-		foreach ($paginated_results as $result) {
-			$tn = $result['TN'] ?? $result['tn'] ?? $result['telephoneNumber'] ?? '';
-			if (empty($tn)) {
-				continue;
-			}
-			
-			$modal_id = 'modal-purchase-' . preg_replace('/[^0-9]/', '', $tn);
-			$btn_id = 'btn_purchase_' . preg_replace('/[^0-9]/', '', $tn);
-			$form_id = 'frm_purchase_' . preg_replace('/[^0-9]/', '', $tn);
-			
-			// Generate random 8-digit portout PIN
-			$random_pin = str_pad(rand(10000000, 99999999), 8, '0', STR_PAD_LEFT);
-			
-			echo "<div id='".$modal_id."' class='dialog' style='display: none;'>\n";
-			echo "	<div class='dialog-header'>\n";
-			echo "		<span>".$text['button-purchase'].": ".escape($tn)."</span>\n";
-			echo "	</div>\n";
-			echo "	<div class='dialog-content'>\n";
-			echo "		<form name='".$form_id."' id='".$form_id."' method='post' action=''>\n";
-			echo "			<input type='hidden' name='action' value='purchase'>\n";
-			echo "			<input type='hidden' name='purchase_tn' value='".escape($tn)."'>\n";
-			echo "			<input type='hidden' name='search' value='".escape($search_query)."'>\n";
-			if (isset($_GET['page'])) {
-				echo "			<input type='hidden' name='page' value='".escape($_GET['page'])."'>\n";
-			}
-			if (!empty($filter)) {
-				echo "			<input type='hidden' name='filter' value='".escape($filter)."'>\n";
-			}
-			echo "			<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
-			echo "			<table class='no_hover'>\n";
-			echo "				<tr>\n";
-			echo "					<td class='vncell'>".$text['label-domain']."</td>\n";
-			echo "					<td class='vtable'>\n";
-			echo "						<select name='purchase_domain_uuid' class='formfld' required>\n";
-			echo "							<option value=''>".$text['label-select']."</option>\n";
-			foreach ($domains as $domain) {
-				$selected = ($domain['domain_uuid'] == $domain_uuid) ? 'selected' : '';
-				echo "							<option value='".escape($domain['domain_uuid'])."' ".$selected.">".escape($domain['domain_name'])."</option>\n";
-			}
-			echo "						</select>\n";
-			echo "					</td>\n";
-			echo "				</tr>\n";
-			echo "				<tr>\n";
-			echo "					<td class='vncell'>".$text['label-lidb']."</td>\n";
-			echo "					<td class='vtable'><input type='text' class='formfld' name='purchase_lidb' maxlength='255'></td>\n";
-			echo "				</tr>\n";
-			echo "				<tr>\n";
-			echo "					<td class='vncell'>".$text['label-portout-pin']."</td>\n";
-			echo "					<td class='vtable'><input type='text' class='formfld' name='purchase_portout_pin' value='".escape($random_pin)."' maxlength='10' pattern='[0-9]{6,10}' title='6-10 digit numeric PIN'></td>\n";
-			echo "				</tr>\n";
-			echo "				<tr>\n";
-			echo "					<td class='vncell'>".$text['label-notes']."</td>\n";
-			echo "					<td class='vtable'><input type='text' class='formfld' name='purchase_reference_id' maxlength='255'></td>\n";
-			echo "				</tr>\n";
-			echo "			</table>\n";
-			echo "		</form>\n";
-			echo "	</div>\n";
-			echo "	<div class='dialog-footer'>\n";
-			echo button::create(['type'=>'button','label'=>$text['button-cancel'],'icon'=>'times','collapse'=>'never','onclick'=>"$('#".$modal_id."').dialog('close');"]);
-			echo button::create(['type'=>'button','label'=>$text['button-purchase'],'icon'=>'check','id'=>$btn_id.'_submit','style'=>'float: right; margin-left: 15px;','collapse'=>'never','onclick'=>"if (document.getElementById('".$form_id."').checkValidity()) { document.getElementById('".$form_id."').submit(); } else { document.getElementById('".$form_id."').reportValidity(); }"]);
-			echo "	</div>\n";
-			echo "</div>\n";
-			echo "<script>\n";
-			echo "$(document).ready(function() {\n";
-			echo "	$('#".$modal_id."').dialog({\n";
-			echo "		autoOpen: false,\n";
-			echo "		modal: true,\n";
-			echo "		width: 500,\n";
-			echo "		title: '".$text['button-purchase'].": ".escape($tn)."'\n";
-			echo "	});\n";
-			echo "});\n";
-			echo "</script>\n";
-		}
-	}
 
 //include the footer
 	require_once "resources/footer.php";
