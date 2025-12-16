@@ -34,7 +34,6 @@
 	$apps[$x]['menu'][$y]['path'] = "/app/bulkvs/bulkvs_numbers.php";
 	$apps[$x]['menu'][$y]['order'] = "";
 	$apps[$x]['menu'][$y]['groups'][] = "superadmin";
-	$apps[$x]['menu'][$y]['groups'][] = "admin";
 	$y++;
 ?>
 
