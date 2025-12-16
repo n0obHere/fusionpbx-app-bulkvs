@@ -375,13 +375,14 @@
 			echo "	<td>".escape($lidb)."&nbsp;</td>\n";
 			echo "	<td>".escape($notes)."&nbsp;</td>\n";
 			if (!empty($destination_edit_url)) {
-				echo "	<td><a href='".$destination_edit_url."' onclick='event.stopPropagation();'>".escape($domain_name)."</a>&nbsp;</td>\n";
+				echo "	<td style='max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' title='".escape($domain_name)."'><a href='".$destination_edit_url."' onclick='event.stopPropagation();'>".escape($domain_name)."</a>&nbsp;</td>\n";
 			} else {
-				echo "	<td>".escape($domain_name)."&nbsp;</td>\n";
+				echo "	<td style='max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' title='".escape($domain_name)."'>".escape($domain_name)."&nbsp;</td>\n";
 			}
 			
 			// E911 information
 			$e911_info = 'None';
+			$e911_full_info = '';
 			$tn_clean = preg_replace('/[^0-9]/', '', $tn); // Remove non-numeric characters for matching
 			if (isset($e911_map[$tn_clean])) {
 				$e911_record = $e911_map[$tn_clean];
@@ -406,22 +407,23 @@
 					}
 				}
 				
-			if (!empty($e911_parts)) {
-				$e911_info = implode(', ', $e911_parts);
+				if (!empty($e911_parts)) {
+					$e911_full_info = implode(', ', $e911_parts);
+					$e911_info = $e911_full_info;
+				}
 			}
-		}
-		
-		// Make E911 cell clickable if permission exists
-		$e911_edit_url = '';
-		if (permission_exists('bulkvs_edit')) {
-			$e911_edit_url = "bulkvs_e911_edit.php?tn=".urlencode($tn);
-		}
-		
-		if (!empty($e911_edit_url)) {
-			echo "	<td><a href='".$e911_edit_url."' onclick='event.stopPropagation();'>".escape($e911_info)."</a>&nbsp;</td>\n";
-		} else {
-			echo "	<td>".escape($e911_info)."&nbsp;</td>\n";
-		}
+			
+			// Make E911 cell clickable if permission exists
+			$e911_edit_url = '';
+			if (permission_exists('bulkvs_edit')) {
+				$e911_edit_url = "bulkvs_e911_edit.php?tn=".urlencode($tn);
+			}
+			
+			if (!empty($e911_edit_url)) {
+				echo "	<td style='max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' title='".escape($e911_full_info ?: $e911_info)."'><a href='".$e911_edit_url."' onclick='event.stopPropagation();'>".escape($e911_info)."</a>&nbsp;</td>\n";
+			} else {
+				echo "	<td style='max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' title='".escape($e911_full_info ?: $e911_info)."'>".escape($e911_info)."&nbsp;</td>\n";
+			}
 		
 		echo "</tr>\n";
 		}
