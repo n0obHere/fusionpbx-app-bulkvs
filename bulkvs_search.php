@@ -102,6 +102,9 @@
 
 				// Get purchase form fields
 				$purchase_lidb = isset($_POST['purchase_lidb']) ? trim($_POST['purchase_lidb']) : '';
+				// Validate and sanitize LIDB: uppercase, alphanumeric only, max 15 characters
+				$purchase_lidb = preg_replace('/[^A-Z0-9]/', '', strtoupper($purchase_lidb));
+				$purchase_lidb = substr($purchase_lidb, 0, 15);
 				$purchase_portout_pin = isset($_POST['purchase_portout_pin']) && trim($_POST['purchase_portout_pin']) !== '' ? trim($_POST['purchase_portout_pin']) : '';
 				$purchase_reference_id = isset($_POST['purchase_reference_id']) ? trim($_POST['purchase_reference_id']) : '';
 				
@@ -361,6 +364,11 @@
 		}
 		// Get values from POST/GET if available (for form persistence)
 		$purchase_lidb = $_POST['purchase_lidb'] ?? $_GET['purchase_lidb'] ?? '';
+		// Ensure LIDB is uppercase and sanitized for display
+		if (!empty($purchase_lidb)) {
+			$purchase_lidb = preg_replace('/[^A-Z0-9]/', '', strtoupper($purchase_lidb));
+			$purchase_lidb = substr($purchase_lidb, 0, 15);
+		}
 		$purchase_portout_pin = $_POST['purchase_portout_pin'] ?? $_GET['purchase_portout_pin'] ?? $random_pin;
 		$purchase_reference_id = $_POST['purchase_reference_id'] ?? $_GET['purchase_reference_id'] ?? '';
 		$purchase_domain_uuid = $_POST['purchase_domain_uuid'] ?? $_GET['purchase_domain_uuid'] ?? $domain_uuid;
@@ -381,7 +389,7 @@
 		echo "						</tr>\n";
 		echo "						<tr>\n";
 		echo "							<td class='vncell'>".$text['label-lidb']."</td>\n";
-		echo "							<td class='vtable'><input type='text' class='formfld' name='purchase_lidb' id='purchase_lidb' value='".escape($purchase_lidb)."' maxlength='255'></td>\n";
+		echo "							<td class='vtable'><input type='text' class='formfld' name='purchase_lidb' id='purchase_lidb' value='".escape($purchase_lidb)."' maxlength='15' pattern='[A-Z0-9]{0,15}' title='Up to 15 alphanumeric characters (letters will be converted to uppercase)' oninput=\"this.value = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();\"></td>\n";
 		echo "						</tr>\n";
 		echo "						<tr>\n";
 		echo "							<td class='vncell'>".$text['label-portout-pin']."</td>\n";

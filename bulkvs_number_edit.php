@@ -52,6 +52,14 @@
 //process form submission
 	if (!empty($_POST['action']) && $_POST['action'] == 'save' && !empty($tn)) {
 		$lidb = isset($_POST['lidb']) ? $_POST['lidb'] : null;
+		// Validate and sanitize LIDB: uppercase, alphanumeric only, max 15 characters
+		if ($lidb !== null) {
+			$lidb = preg_replace('/[^A-Z0-9]/', '', strtoupper(trim($lidb)));
+			$lidb = substr($lidb, 0, 15);
+			if (empty($lidb)) {
+				$lidb = null; // Convert empty string back to null
+			}
+		}
 		$portout_pin = isset($_POST['portout_pin']) ? $_POST['portout_pin'] : null;
 		$notes = isset($_POST['notes']) ? $_POST['notes'] : null;
 		// Always send SMS/MMS values (true/false) when form is submitted so we can enable/disable them
@@ -85,7 +93,10 @@
 			$number = $bulkvs_api->getNumber($tn);
 			
 			// Extract fields from API response
-			$current_lidb = $number['Lidb'] ?? $number['lidb'] ?? '';
+			$current_lidb_raw = $number['Lidb'] ?? $number['lidb'] ?? '';
+			// Sanitize LIDB from API: uppercase, alphanumeric only, max 15 characters
+			$current_lidb = preg_replace('/[^A-Z0-9]/', '', strtoupper($current_lidb_raw));
+			$current_lidb = substr($current_lidb, 0, 15);
 			$current_portout_pin = $number['Portout Pin'] ?? $number['portoutPin'] ?? '';
 			$current_notes = $number['ReferenceID'] ?? $number['referenceID'] ?? '';
 			
@@ -103,6 +114,11 @@
 //set default values (use POST values if set, otherwise use current values)
 	if (empty($_POST['action']) || $_POST['action'] != 'save') {
 		$lidb = $current_lidb;
+		// Ensure LIDB is uppercase and sanitized for display
+		if (!empty($lidb)) {
+			$lidb = preg_replace('/[^A-Z0-9]/', '', strtoupper($lidb));
+			$lidb = substr($lidb, 0, 15);
+		}
 		$portout_pin = $current_portout_pin;
 		$notes = $current_notes;
 		$sms = $current_sms;
@@ -141,7 +157,7 @@
 	echo "		<table class='no_hover'>\n";
 	echo "			<tr>\n";
 	echo "				<td class='vncell' style='vertical-align: top;'>".$text['label-lidb']."</td>\n";
-	echo "				<td class='vtable'><input type='text' class='formfld' name='lidb' value='".escape($lidb)."' maxlength='255'></td>\n";
+	echo "				<td class='vtable'><input type='text' class='formfld' name='lidb' id='lidb' value='".escape($lidb)."' maxlength='15' pattern='[A-Z0-9]{0,15}' title='Up to 15 alphanumeric characters (letters will be converted to uppercase)' oninput=\"this.value = this.value.replace(/[^A-Z0-9]/gi, '').toUpperCase();\"></td>\n";
 	echo "			</tr>\n";
 	echo "			<tr>\n";
 	echo "				<td class='vncell' style='vertical-align: top;'>".$text['label-portout-pin']."</td>\n";
