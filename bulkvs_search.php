@@ -47,8 +47,9 @@
 	$token = $object->create($_SERVER['PHP_SELF']);
 
 //get http variables
-	$search_query = $_GET['search'] ?? $_POST['search'] ?? '';
-	$search_action = $_GET['action'] ?? $_POST['action'] ?? '';
+	// POST takes precedence over GET for form submissions
+	$search_query = $_POST['search'] ?? $_GET['search'] ?? '';
+	$search_action = $_POST['action'] ?? $_GET['action'] ?? '';
 	$purchase_tn = $_POST['purchase_tn'] ?? '';
 	$purchase_domain_uuid = $_POST['purchase_domain_uuid'] ?? '';
 	
@@ -66,9 +67,11 @@
 	}
 
 //process purchase
+	error_log("BulkVS Debug - search_action: '$search_action', REQUEST_METHOD: " . $_SERVER['REQUEST_METHOD']);
 	if ($search_action == 'purchase') {
 		// Debug: Log purchase attempt
 		error_log("BulkVS Purchase Attempt - POST data: " . print_r($_POST, true));
+		error_log("BulkVS Purchase Attempt - GET data: " . print_r($_GET, true));
 		error_log("BulkVS Purchase Attempt - purchase_tn: " . ($purchase_tn ?? 'empty'));
 		error_log("BulkVS Purchase Attempt - purchase_domain_uuid: " . ($purchase_domain_uuid ?? 'empty'));
 		
@@ -437,22 +440,8 @@
 				if (permission_exists('bulkvs_purchase')) {
 					$tn_clean = preg_replace('/[^0-9]/', '', $tn);
 					echo "	<td class='action-button'>\n";
-					echo "		<form method='post' action='' id='purchase_form_".$tn_clean."' style='display: inline;' onsubmit=\"\n";
-					echo "			var domain = document.getElementById('purchase_domain_uuid');\n";
-					echo "			if (!domain || !domain.value) {\n";
-					echo "				alert('Please select a domain');\n";
-					echo "				return false;\n";
-					echo "			}\n";
-					echo "			document.getElementById('purchase_domain_uuid_".$tn_clean."').value = domain.value;\n";
-					echo "			var lidbEl = document.getElementById('purchase_lidb');\n";
-					echo "			if (lidbEl) document.getElementById('purchase_lidb_".$tn_clean."').value = lidbEl.value || '';\n";
-					echo "			var pinEl = document.getElementById('purchase_portout_pin');\n";
-					echo "			if (pinEl) document.getElementById('purchase_portout_pin_".$tn_clean."').value = pinEl.value || '';\n";
-					echo "			var refEl = document.getElementById('purchase_reference_id');\n";
-					echo "			if (refEl) document.getElementById('purchase_reference_id_".$tn_clean."').value = refEl.value || '';\n";
-					echo "			return true;\n";
-					echo "		\">\n";
-					echo "			<input type='hidden' name='action' value='purchase'>\n";
+					echo "		<form method='post' action='bulkvs_search.php' id='purchase_form_".$tn_clean."' style='display: inline;'>\n";
+					echo "			<input type='hidden' name='action' id='purchase_action_".$tn_clean."' value='purchase'>\n";
 					echo "			<input type='hidden' name='purchase_tn' value='".escape($tn)."'>\n";
 					echo "			<input type='hidden' name='search' value='".escape($search_query)."'>\n";
 					if (isset($_GET['page'])) {
@@ -466,7 +455,23 @@
 					echo "			<input type='hidden' name='purchase_portout_pin' id='purchase_portout_pin_".$tn_clean."' value=''>\n";
 					echo "			<input type='hidden' name='purchase_reference_id' id='purchase_reference_id_".$tn_clean."' value=''>\n";
 					echo "			<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
-					echo "			<input type='submit' class='btn' value='".$text['button-purchase']."'>\n";
+					echo "			<input type='submit' class='btn' value='".$text['button-purchase']."' onclick=\"\n";
+					echo "				event.preventDefault();\n";
+					echo "				var domain = document.getElementById('purchase_domain_uuid');\n";
+					echo "				if (!domain || !domain.value) {\n";
+					echo "					alert('Please select a domain');\n";
+					echo "					return false;\n";
+					echo "				}\n";
+					echo "				document.getElementById('purchase_domain_uuid_".$tn_clean."').value = domain.value;\n";
+					echo "				var lidbEl = document.getElementById('purchase_lidb');\n";
+					echo "				if (lidbEl) document.getElementById('purchase_lidb_".$tn_clean."').value = lidbEl.value || '';\n";
+					echo "				var pinEl = document.getElementById('purchase_portout_pin');\n";
+					echo "				if (pinEl) document.getElementById('purchase_portout_pin_".$tn_clean."').value = pinEl.value || '';\n";
+					echo "				var refEl = document.getElementById('purchase_reference_id');\n";
+					echo "				if (refEl) document.getElementById('purchase_reference_id_".$tn_clean."').value = refEl.value || '';\n";
+					echo "				document.getElementById('purchase_form_".$tn_clean."').submit();\n";
+					echo "				return false;\n";
+					echo "			\">\n";
 					echo "		</form>\n";
 					echo "	</td>\n";
 				}
