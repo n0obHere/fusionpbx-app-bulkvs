@@ -145,9 +145,6 @@
 		echo "	<th>".$text['label-tier']."</th>\n";
 		echo "	<th>".$text['label-lidb']."</th>\n";
 		echo "	<th>".$text['label-notes']."</th>\n";
-		if (permission_exists('bulkvs_edit')) {
-			echo "	<td class='action-button'>&nbsp;</td>\n";
-		}
 		echo "</tr>\n";
 
 		foreach ($paginated_numbers as $number) {
@@ -188,32 +185,15 @@
 				}
 			}
 
-			//create the row link
-			$list_row_url = '';
-			if (permission_exists('bulkvs_edit')) {
-				$list_row_url = "bulkvs_number_edit.php?tn=".urlencode($tn);
-			}
-
 			//show the data
-			echo "<tr class='list-row'".(!empty($list_row_url) ? " href='".$list_row_url."'" : "").">\n";
-			echo "	<td class='no-wrap'>";
-			if (permission_exists('bulkvs_edit')) {
-				echo "		<a href='".$list_row_url."'>".escape($tn)."</a>\n";
-			} else {
-				echo "		".escape($tn);
-			}
-			echo "	</td>\n";
+			echo "<tr class='list-row'>\n";
+			echo "	<td class='no-wrap'>".escape($tn)."</td>\n";
 			echo "	<td>".escape($status)."&nbsp;</td>\n";
 			echo "	<td class='no-wrap'>".escape($activation_date)."&nbsp;</td>\n";
 			echo "	<td>".escape($rate_center)."&nbsp;</td>\n";
 			echo "	<td>".escape($tier)."&nbsp;</td>\n";
 			echo "	<td>".escape($lidb)."&nbsp;</td>\n";
 			echo "	<td>".escape($notes)."&nbsp;</td>\n";
-			if (permission_exists('bulkvs_edit')) {
-				echo "	<td class='action-button'>";
-				echo button::create(['type'=>'button','title'=>$text['button-edit'],'icon'=>$settings->get('theme', 'button_icon_edit'),'link'=>$list_row_url]);
-				echo "	</td>\n";
-			}
 			echo "</tr>\n";
 		}
 
