@@ -268,6 +268,14 @@ class bulkvs_api {
 		
 		return $this->request('POST', '/orderTn', $data);
 	}
+
+	/**
+	 * Get all E911 records
+	 * @return array Array of E911 records
+	 */
+	public function getE911Records() {
+		return $this->request('GET', '/e911Record', []);
+	}
 }
 
 ?>

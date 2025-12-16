@@ -48,6 +48,7 @@
 //get numbers from BulkVS API
 	$numbers = [];
 	$error_message = '';
+	$e911_map = []; // Initialize E911 map
 	try {
 		require_once "resources/classes/bulkvs_api.php";
 		$bulkvs_api = new bulkvs_api($settings);
@@ -66,6 +67,28 @@
 			return !empty($tn);
 		});
 		$numbers = array_values($numbers); // Re-index array
+		
+		// Fetch E911 records
+		$e911_records = [];
+		try {
+			$e911_response = $bulkvs_api->getE911Records();
+			if (isset($e911_response['data']) && is_array($e911_response['data'])) {
+				$e911_records = $e911_response['data'];
+			} elseif (is_array($e911_response)) {
+				$e911_records = $e911_response;
+			}
+			
+			// Create a mapping of TN to E911 record
+			foreach ($e911_records as $e911_record) {
+				$e911_tn = $e911_record['TN'] ?? $e911_record['tn'] ?? '';
+				if (!empty($e911_tn)) {
+					$e911_map[$e911_tn] = $e911_record;
+				}
+			}
+		} catch (Exception $e) {
+			// E911 fetch failed, but don't block the page - just log it
+			error_log("BulkVS E911 fetch error: " . $e->getMessage());
+		}
 	} catch (Exception $e) {
 		$error_message = $e->getMessage();
 		message::add($text['message-api-error'] . ': ' . $error_message, 'negative');
@@ -275,6 +298,7 @@
 		echo "	<th>".$text['label-lidb']."</th>\n";
 		echo "	<th>".$text['label-notes']."</th>\n";
 		echo "	<th>".$text['label-domain']."</th>\n";
+		echo "	<th>".$text['label-e911']."</th>\n";
 		echo "</tr>\n";
 
 		foreach ($paginated_numbers as $number) {
@@ -355,6 +379,39 @@
 			} else {
 				echo "	<td>".escape($domain_name)."&nbsp;</td>\n";
 			}
+			
+			// E911 information
+			$e911_info = 'None';
+			$tn_clean = preg_replace('/[^0-9]/', '', $tn); // Remove non-numeric characters for matching
+			if (isset($e911_map[$tn_clean])) {
+				$e911_record = $e911_map[$tn_clean];
+				$caller_name = $e911_record['Caller Name'] ?? $e911_record['callerName'] ?? '';
+				$address_line1 = $e911_record['Address Line 1'] ?? $e911_record['addressLine1'] ?? '';
+				$city = $e911_record['City'] ?? $e911_record['city'] ?? '';
+				$state = $e911_record['State'] ?? $e911_record['state'] ?? '';
+				$zip = $e911_record['Zip'] ?? $e911_record['zip'] ?? '';
+				
+				// Build E911 display string
+				$e911_parts = [];
+				if (!empty($caller_name)) {
+					$e911_parts[] = $caller_name;
+				}
+				if (!empty($address_line1)) {
+					$e911_parts[] = $address_line1;
+				}
+				if (!empty($city) || !empty($state) || !empty($zip)) {
+					$city_state_zip = trim($city . ', ' . $state . ' ' . $zip, ', ');
+					if (!empty($city_state_zip)) {
+						$e911_parts[] = $city_state_zip;
+					}
+				}
+				
+				if (!empty($e911_parts)) {
+					$e911_info = implode(', ', $e911_parts);
+				}
+			}
+			echo "	<td>".escape($e911_info)."&nbsp;</td>\n";
+			
 			echo "</tr>\n";
 		}
 

@@ -63,6 +63,9 @@ $text['label-rate-center']['en-gb'] = "Rate Center";
 $text['label-state']['en-us'] = "State";
 $text['label-state']['en-gb'] = "State";
 
+$text['label-e911']['en-us'] = "E911";
+$text['label-e911']['en-gb'] = "E911";
+
 $text['label-lata']['en-us'] = "LATA";
 $text['label-lata']['en-gb'] = "LATA";
 
