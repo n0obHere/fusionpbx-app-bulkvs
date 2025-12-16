@@ -238,7 +238,8 @@ class bulkvs_api {
 			'TN' => $tn,
 			'Trunk Group' => $trunk_group,
 			'Sms' => false,
-			'Mms' => false
+			'Mms' => false,
+			'Webhook' => '' // Send empty webhook field
 		];
 		
 		// Only add fields if they are provided (not null and not empty)

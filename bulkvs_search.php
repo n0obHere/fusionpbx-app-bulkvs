@@ -89,10 +89,10 @@
 				throw new Exception("Trunk Group must be configured in default settings");
 			}
 
-			// Get purchase form fields (convert empty strings to null)
-			$purchase_lidb = !empty($_POST['purchase_lidb']) ? $_POST['purchase_lidb'] : null;
-			$purchase_portout_pin = !empty($_POST['purchase_portout_pin']) ? $_POST['purchase_portout_pin'] : null;
-			$purchase_reference_id = !empty($_POST['purchase_reference_id']) ? $_POST['purchase_reference_id'] : null;
+			// Get purchase form fields
+			$purchase_lidb = isset($_POST['purchase_lidb']) && trim($_POST['purchase_lidb']) !== '' ? trim($_POST['purchase_lidb']) : null;
+			$purchase_portout_pin = isset($_POST['purchase_portout_pin']) && trim($_POST['purchase_portout_pin']) !== '' ? trim($_POST['purchase_portout_pin']) : null;
+			$purchase_reference_id = isset($_POST['purchase_reference_id']) && trim($_POST['purchase_reference_id']) !== '' ? trim($_POST['purchase_reference_id']) : null;
 
 			// Purchase the number
 			$bulkvs_api->purchaseNumber($purchase_tn, $trunk_group, $purchase_lidb, $purchase_portout_pin, $purchase_reference_id);
@@ -141,7 +141,10 @@
 			header("Location: ".$redirect_url);
 			return;
 		} catch (Exception $e) {
-			message::add($text['message-api-error'] . ': ' . $e->getMessage(), 'negative');
+			$error_details = $e->getMessage();
+			// Log more details for debugging
+			error_log("BulkVS Purchase Error: " . $error_details);
+			message::add($text['message-api-error'] . ': ' . $error_details, 'negative');
 		}
 	}
 
@@ -397,7 +400,7 @@
 					echo "			<input type='hidden' name='purchase_portout_pin' id='purchase_portout_pin_".preg_replace('/[^0-9]/', '', $tn)."' value=''>\n";
 					echo "			<input type='hidden' name='purchase_reference_id' id='purchase_reference_id_".preg_replace('/[^0-9]/', '', $tn)."' value=''>\n";
 					echo "			<input type='hidden' name='".$token['name']."' value='".$token['hash']."'>\n";
-					echo "			<input type='submit' class='btn' value='".$text['button-purchase']."' onclick=\"var domain = document.getElementById('purchase_domain_uuid'); if (!domain.value) { alert('Please select a domain'); return false; } document.getElementById('purchase_domain_uuid_".preg_replace('/[^0-9]/', '', $tn)."').value = domain.value; document.getElementById('purchase_lidb_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_lidb').value; document.getElementById('purchase_portout_pin_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_portout_pin').value; document.getElementById('purchase_reference_id_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_reference_id').value; return true;\">\n";
+					echo "			<input type='submit' class='btn' value='".$text['button-purchase']."' onclick=\"var domain = document.getElementById('purchase_domain_uuid'); if (!domain || !domain.value) { alert('Please select a domain'); event.preventDefault(); return false; } document.getElementById('purchase_domain_uuid_".preg_replace('/[^0-9]/', '', $tn)."').value = domain.value; document.getElementById('purchase_lidb_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_lidb') ? document.getElementById('purchase_lidb').value : ''; document.getElementById('purchase_portout_pin_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_portout_pin') ? document.getElementById('purchase_portout_pin').value : ''; document.getElementById('purchase_reference_id_".preg_replace('/[^0-9]/', '', $tn)."').value = document.getElementById('purchase_reference_id') ? document.getElementById('purchase_reference_id').value : ''; return true;\">\n";
 					echo "		</form>\n";
 					echo "	</td>\n";
 				}
