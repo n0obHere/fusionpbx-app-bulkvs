@@ -360,6 +360,15 @@ class bulkvs_api {
 	public function deleteNumber($tn) {
 		return $this->request('DELETE', '/tnRecord', ['Number' => $tn]);
 	}
+
+	/**
+	 * Delete an E911 record
+	 * @param string $tn Telephone number
+	 * @return array Response data
+	 */
+	public function deleteE911Record($tn) {
+		return $this->request('DELETE', '/e911Record', ['Number' => $tn]);
+	}
 }
 
 ?>

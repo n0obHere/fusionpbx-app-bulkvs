@@ -102,6 +102,12 @@ $text['message-disconnect-confirm']['en-gb'] = "Are you sure you want to disconn
 $text['message-disconnect-success']['en-us'] = "Number disconnected successfully";
 $text['message-disconnect-success']['en-gb'] = "Number disconnected successfully";
 
+$text['message-e911-delete-confirm']['en-us'] = "Are you sure you want to delete this E911 record?";
+$text['message-e911-delete-confirm']['en-gb'] = "Are you sure you want to delete this E911 record?";
+
+$text['message-e911-delete-success']['en-us'] = "E911 record deleted successfully";
+$text['message-e911-delete-success']['en-gb'] = "E911 record deleted successfully";
+
 $text['label-lata']['en-us'] = "LATA";
 $text['label-lata']['en-gb'] = "LATA";
 
@@ -119,6 +125,9 @@ $text['button-save']['en-gb'] = "Save";
 
 $text['button-back']['en-us'] = "Back";
 $text['button-back']['en-gb'] = "Back";
+
+$text['button-delete']['en-us'] = "Delete";
+$text['button-delete']['en-gb'] = "Delete";
 
 $text['button-edit']['en-us'] = "Edit";
 $text['button-edit']['en-gb'] = "Edit";

@@ -51,6 +51,7 @@
 	$state = $_POST['state'] ?? '';
 	$zip = $_POST['zip'] ?? '';
 	$sms_numbers = $_POST['sms_numbers'] ?? '';
+	$delete_action = $_POST['delete_action'] ?? $_GET['delete_action'] ?? '';
 
 //process form submission
 	if (!empty($_POST['action']) && $_POST['action'] == 'save' && !empty($tn)) {
@@ -106,11 +107,44 @@
 			$bulkvs_api->saveE911Record($tn, trim($caller_name), $address_id, $sms_array);
 			
 			message::add($text['message-update']);
+			message::add($text['message-update']);
 			header("Location: bulkvs_numbers.php");
 			return;
 		} catch (Exception $e) {
 			message::add($text['message-api-error'] . ': ' . $e->getMessage(), 'negative');
 		}
+	}
+
+//process delete action
+	if ($delete_action == 'delete' && !empty($tn)) {
+		// Validate token
+		$object = new token;
+		if (!$object->validate($_SERVER['PHP_SELF'])) {
+			message::add("Invalid token", 'negative');
+			header("Location: bulkvs_e911_edit.php?tn=".urlencode($tn));
+			return;
+		}
+		
+		try {
+			require_once "resources/classes/bulkvs_api.php";
+			$bulkvs_api = new bulkvs_api($settings);
+			$result = $bulkvs_api->deleteE911Record($tn);
+			
+			// Check if delete was successful
+			$status = $result['Status'] ?? $result['status'] ?? '';
+			if (strtoupper($status) === 'SUCCESS' || empty($status)) {
+				message::add($text['message-e911-delete-success'], 'positive');
+			} else {
+				$error_msg = $result['Description'] ?? $result['description'] ?? 'Delete failed';
+				throw new Exception($error_msg);
+			}
+		} catch (Exception $e) {
+			message::add($text['message-api-error'] . ': ' . $e->getMessage(), 'negative');
+		}
+		
+		// Redirect back to numbers page
+		header("Location: bulkvs_numbers.php");
+		return;
 	}
 
 //get current E911 record details from API
@@ -305,7 +339,27 @@
 	echo "</div>\n";
 	echo "<br />\n";
 
+	// Delete button
+	echo "<div style='text-align: right; padding-top: 15px;'>";
+	echo button::create(['type'=>'button','label'=>$text['button-delete'],'icon'=>$settings->get('theme', 'button_icon_delete'),'id'=>'btn_delete','style'=>'background-color: #d32f2f; color: #ffffff; border-color: #d32f2f;','onclick'=>"modal_open('modal-e911-delete');"]);
+	echo "</div>\n";
+
 	echo "</form>\n";
+
+	// Delete confirmation modal
+	echo modal::create([
+		'id'=>'modal-e911-delete',
+		'type'=>'delete',
+		'message'=>$text['message-e911-delete-confirm'] . ' (' . escape($tn) . ')',
+		'actions'=>button::create([
+			'type'=>'button',
+			'label'=>$text['button-continue'],
+			'icon'=>'check',
+			'style'=>'float: right; margin-left: 15px;',
+			'collapse'=>'never',
+			'onclick'=>"modal_close(); window.location.href='bulkvs_e911_edit.php?tn=".urlencode($tn)."&delete_action=delete&".$token['name']."=".$token['hash']."';"
+		])
+	]);
 
 //include the footer
 	require_once "resources/footer.php";
