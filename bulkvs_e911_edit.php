@@ -116,7 +116,7 @@
 	}
 
 //process delete action
-	if ($delete_action == 'delete' && !empty($tn)) {
+	if ($delete_action == 'delete' && !empty($tn) && permission_exists('bulkvs_purchase')) {
 		// Validate token
 		$object = new token;
 		if (!$object->validate($_SERVER['PHP_SELF'])) {
@@ -235,6 +235,9 @@
 	echo "	<div class='heading' style='color: #ffffff;'><b>".$text['title-bulkvs-e911-edit']."</b></div>\n";
 	echo "	<div class='actions'>\n";
 	echo button::create(['type'=>'button','label'=>$text['button-back'],'icon'=>'arrow-left','link'=>'bulkvs_numbers.php']);
+	if (permission_exists('bulkvs_purchase')) {
+		echo button::create(['type'=>'button','label'=>$text['button-delete'],'icon'=>$settings->get('theme', 'button_icon_delete'),'id'=>'btn_delete','style'=>'background-color: #d32f2f; color: #ffffff; border-color: #d32f2f; margin-right: 15px;','onclick'=>"modal_open('modal-e911-delete');"]);
+	}
 	echo button::create(['type'=>'submit','label'=>$text['button-save'],'icon'=>$settings->get('theme', 'button_icon_save'),'id'=>'btn_save']);
 	echo "	</div>\n";
 	echo "	<div style='clear: both;'></div>\n";
@@ -339,27 +342,24 @@
 	echo "</div>\n";
 	echo "<br />\n";
 
-	// Delete button
-	echo "<div style='text-align: right; padding-top: 15px;'>";
-	echo button::create(['type'=>'button','label'=>$text['button-delete'],'icon'=>$settings->get('theme', 'button_icon_delete'),'id'=>'btn_delete','style'=>'background-color: #d32f2f; color: #ffffff; border-color: #d32f2f;','onclick'=>"modal_open('modal-e911-delete');"]);
-	echo "</div>\n";
-
 	echo "</form>\n";
 
-	// Delete confirmation modal
-	echo modal::create([
-		'id'=>'modal-e911-delete',
-		'type'=>'delete',
-		'message'=>$text['message-e911-delete-confirm'] . ' (' . escape($tn) . ')',
-		'actions'=>button::create([
-			'type'=>'button',
-			'label'=>$text['button-continue'],
-			'icon'=>'check',
-			'style'=>'float: right; margin-left: 15px;',
-			'collapse'=>'never',
-			'onclick'=>"modal_close(); window.location.href='bulkvs_e911_edit.php?tn=".urlencode($tn)."&delete_action=delete&".$token['name']."=".$token['hash']."';"
-		])
-	]);
+	// Delete confirmation modal (only if user has purchase permission)
+	if (permission_exists('bulkvs_purchase')) {
+		echo modal::create([
+			'id'=>'modal-e911-delete',
+			'type'=>'delete',
+			'message'=>$text['message-e911-delete-confirm'] . ' (' . escape($tn) . ')',
+			'actions'=>button::create([
+				'type'=>'button',
+				'label'=>$text['button-continue'],
+				'icon'=>'check',
+				'style'=>'float: right; margin-left: 15px;',
+				'collapse'=>'never',
+				'onclick'=>"modal_close(); window.location.href='bulkvs_e911_edit.php?tn=".urlencode($tn)."&delete_action=delete&".$token['name']."=".$token['hash']."';"
+			])
+		]);
+	}
 
 //include the footer
 	require_once "resources/footer.php";
