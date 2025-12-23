@@ -72,6 +72,18 @@
 			// Always pass SMS/MMS (not null) so API can update them
 			$bulkvs_api->updateNumber($tn, $lidb, $portout_pin, $notes, $sms, $mms);
 			
+			// Invalidate cache - trigger a sync to update the cached record
+			require_once "resources/classes/bulkvs_cache.php";
+			$cache = new bulkvs_cache($database, $settings);
+			$trunk_group = $settings->get('bulkvs', 'trunk_group', '');
+			// Trigger a sync in the background (don't wait for it)
+			try {
+				$cache->syncNumbers($trunk_group);
+			} catch (Exception $e) {
+				// Ignore cache sync errors - API update was successful
+				error_log("BulkVS cache sync error after number update: " . $e->getMessage());
+			}
+			
 			message::add($text['message-update']);
 			header("Location: bulkvs_numbers.php");
 			return;

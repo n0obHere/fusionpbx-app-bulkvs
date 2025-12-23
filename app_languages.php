@@ -166,7 +166,21 @@ $text['description-bulkvs-numbers']['en-us'] = "View and manage BulkVS phone num
 $text['description-bulkvs-numbers']['en-gb'] = "View and manage BulkVS phone numbers filtered by trunk group.";
 
 $text['description-bulkvs-search']['en-us'] = "Search for available phone numbers and purchase them. Purchased numbers will be automatically created as destinations.";
-$text['description-bulkvs-search']['en-gb'] = "Search for available phone numbers and purchase them. Purchased numbers will be automatically created as destinations.";
+
+$text['button-refresh']['en-us'] = "Refresh";
+$text['button-refresh']['en-gb'] = "Refresh";
+
+$text['label-refresh-available']['en-us'] = "New records available - click to refresh";
+$text['label-refresh-available']['en-gb'] = "New records available - click to refresh";
+
+$text['message-sync-in-progress']['en-us'] = "Syncing data in background...";
+$text['message-sync-in-progress']['en-gb'] = "Syncing data in background...";
+
+$text['message-sync-complete']['en-us'] = "Sync complete";
+$text['message-sync-complete']['en-gb'] = "Sync complete";
+
+$text['message-sync-error']['en-us'] = "Sync error";
+$text['message-sync-error']['en-gb'] = "Sync error";
 
 ?>
 
