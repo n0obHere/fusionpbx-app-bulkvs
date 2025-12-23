@@ -311,6 +311,9 @@
 	echo "</div>\n";
 	echo "	<div class='actions'>\n";
 	echo button::create(['type'=>'button','label'=>$text['button-back'],'icon'=>'arrow-left','link'=>'bulkvs_numbers.php']);
+	if (permission_exists('bulkvs_view')) {
+		echo button::create(['type'=>'button','label'=>$text['label-e911'],'icon'=>'phone','link'=>'bulkvs_e911.php']);
+	}
 	if ($search_action == 'search' && !empty($search_results)) {
 		echo "		<form method='get' action='' style='display: inline; margin-left: 15px;'>\n";
 		echo "			<input type='hidden' name='action' value='search'>\n";

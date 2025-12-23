@@ -75,7 +75,7 @@ Before using the app, you must configure the BulkVS API credentials and trunk gr
 
    - **bulkvs/api_key**: Your BulkVS API Key/Username
    - **bulkvs/api_secret**: Your BulkVS API Secret/Password
-   - **bulkvs/trunk_group**: Your BulkVS Trunk Group name (case-sensitive)
+   - **bulkvs/trunk_group**: Your BulkVS Trunk Group name for this server(case-sensitive)
    - **bulkvs/api_url**: BulkVS API URL (default: `https://portal.bulkvs.com/api/v1.0`)
 
 ## Permissions

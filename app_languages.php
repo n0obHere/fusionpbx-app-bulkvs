@@ -12,6 +12,9 @@ $text['title-bulkvs-number-edit']['en-gb'] = "Edit Number";
 $text['title-bulkvs-search']['en-us'] = "Search & Purchase Numbers";
 $text['title-bulkvs-search']['en-gb'] = "Search & Purchase Numbers";
 
+$text['title-bulkvs-e911']['en-us'] = "E911 Records";
+$text['title-bulkvs-e911']['en-gb'] = "E911 Records";
+
 $text['title-bulkvs-e911-edit']['en-us'] = "Edit E911 Record";
 $text['title-bulkvs-e911-edit']['en-gb'] = "Edit E911 Record";
 

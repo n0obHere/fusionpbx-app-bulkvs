@@ -43,6 +43,9 @@
 
 //get http variables
 	$tn = $_GET['tn'] ?? '';
+
+//handle add mode (no TN provided)
+	$is_add_mode = empty($tn);
 	$caller_name = $_POST['caller_name'] ?? '';
 	$street_number = $_POST['street_number'] ?? '';
 	$street_name = $_POST['street_name'] ?? '';
@@ -54,12 +57,31 @@
 	$delete_action = $_POST['delete_action'] ?? $_GET['delete_action'] ?? '';
 
 //process form submission
-	if (!empty($_POST['action']) && $_POST['action'] == 'save' && !empty($tn)) {
+	if (!empty($_POST['action']) && $_POST['action'] == 'save') {
+		// For add mode, get TN from form
+		if ($is_add_mode) {
+			$tn = $_POST['tn'] ?? '';
+			// Validate TN format: 11 digits starting with 1
+			if (empty($tn)) {
+				message::add("Telephone number is required", 'negative');
+			} elseif (!preg_match('/^1\d{10}$/', preg_replace('/[^0-9]/', '', $tn))) {
+				message::add("Telephone number must be 11 digits starting with 1", 'negative');
+				$tn = ''; // Clear invalid TN
+			} else {
+				$tn = preg_replace('/[^0-9]/', '', $tn); // Clean TN
+			}
+		}
+		
+		if (!empty($tn)) {
 		// Validate token
 		$object = new token;
 		if (!$object->validate($_SERVER['PHP_SELF'])) {
 			message::add("Invalid token", 'negative');
-			header("Location: bulkvs_numbers.php");
+			if ($is_add_mode) {
+				header("Location: bulkvs_e911.php");
+			} else {
+				header("Location: bulkvs_e911_edit.php?tn=".urlencode($tn));
+			}
 			return;
 		}
 
@@ -107,11 +129,11 @@
 			$bulkvs_api->saveE911Record($tn, trim($caller_name), $address_id, $sms_array);
 			
 			message::add($text['message-update']);
-			message::add($text['message-update']);
-			header("Location: bulkvs_numbers.php");
+			header("Location: bulkvs_e911.php");
 			return;
 		} catch (Exception $e) {
 			message::add($text['message-api-error'] . ': ' . $e->getMessage(), 'negative');
+		}
 		}
 	}
 
@@ -121,7 +143,11 @@
 		$object = new token;
 		if (!$object->validate($_SERVER['PHP_SELF'])) {
 			message::add("Invalid token", 'negative');
-			header("Location: bulkvs_e911_edit.php?tn=".urlencode($tn));
+			if ($is_add_mode) {
+				header("Location: bulkvs_e911_edit.php");
+			} else {
+				header("Location: bulkvs_e911_edit.php?tn=".urlencode($tn));
+			}
 			return;
 		}
 		
@@ -142,8 +168,8 @@
 			message::add($text['message-api-error'] . ': ' . $e->getMessage(), 'negative');
 		}
 		
-		// Redirect back to numbers page
-		header("Location: bulkvs_numbers.php");
+		// Redirect back to E911 page
+		header("Location: bulkvs_e911.php");
 		return;
 	}
 
@@ -234,8 +260,8 @@
 	echo "<div class='action_bar' id='action_bar' style='background-color: #d32f2f; color: #ffffff;'>\n";
 	echo "	<div class='heading' style='color: #ffffff;'><b>".$text['title-bulkvs-e911-edit']."</b></div>\n";
 	echo "	<div class='actions'>\n";
-	echo button::create(['type'=>'button','label'=>$text['button-back'],'icon'=>'arrow-left','link'=>'bulkvs_numbers.php']);
-	if (permission_exists('bulkvs_purchase')) {
+	echo button::create(['type'=>'button','label'=>$text['button-back'],'icon'=>'arrow-left','link'=>'bulkvs_e911.php']);
+	if (!$is_add_mode && permission_exists('bulkvs_purchase')) {
 		echo button::create(['type'=>'button','label'=>$text['button-delete'],'icon'=>$settings->get('theme', 'button_icon_delete'),'id'=>'btn_delete','style'=>'background-color: #d32f2f; color: #ffffff; border-color: #d32f2f; margin-right: 15px;','onclick'=>"modal_open('modal-e911-delete');"]);
 	}
 	echo button::create(['type'=>'submit','label'=>$text['button-save'],'icon'=>$settings->get('theme', 'button_icon_save'),'id'=>'btn_save']);
@@ -252,7 +278,11 @@
 	echo "	".$text['label-telephone-number']."\n";
 	echo "</td>\n";
 	echo "<td width='70%' class='vtable' align='left'>\n";
-	echo "	".escape($tn)."\n";
+	if ($is_add_mode) {
+		echo "	<input type='text' class='formfld' name='tn' value='".escape($tn)."' maxlength='11' placeholder='1XXXXXXXXXX' pattern='^1\d{10}$' title='11-digit number starting with 1' required='required'>\n";
+	} else {
+		echo "	".escape($tn)."\n";
+	}
 	echo "</td>\n";
 	echo "</tr>\n";
 
@@ -344,8 +374,8 @@
 
 	echo "</form>\n";
 
-	// Delete confirmation modal (only if user has purchase permission)
-	if (permission_exists('bulkvs_purchase')) {
+	// Delete confirmation modal (only if user has purchase permission and not in add mode)
+	if (!$is_add_mode && permission_exists('bulkvs_purchase')) {
 		echo modal::create([
 			'id'=>'modal-e911-delete',
 			'type'=>'delete',
@@ -363,5 +393,4 @@
 
 //include the footer
 	require_once "resources/footer.php";
-
 ?>
