@@ -294,6 +294,9 @@
 	}
 	echo "</div>\n";
 	echo "	<div class='actions'>\n";
+	if (permission_exists('bulkvs_view')) {
+		echo button::create(['type'=>'button','label'=>$text['label-e911'],'icon'=>'phone','link'=>'bulkvs_e911.php']);
+	}
 	if (permission_exists('bulkvs_search')) {
 		echo button::create(['type'=>'button','label'=>$text['title-bulkvs-search'],'icon'=>'search','link'=>'bulkvs_search.php']);
 	}
@@ -416,39 +419,19 @@
 			echo "	<td>".escape($tier)."&nbsp;</td>\n";
 			echo "	<td>".escape($lidb)."&nbsp;</td>\n";
 			echo "	<td>".escape($notes)."&nbsp;</td>\n";
-			// Create E911 edit URL
-			$e911_edit_url = '';
-			if (permission_exists('bulkvs_edit')) {
-				$e911_edit_url = "bulkvs_e911_edit.php?tn=".urlencode($tn);
-			}
-			
 			if ($has_domain_for_display && !empty($domain_name)) {
 				echo "	<td class='no-link' style='max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;' title='".escape($domain_name)."'>";
 				echo button::create(['type'=>'button','class'=>'link','label'=>escape($domain_name),'link'=>$destination_edit_url,'onclick'=>'event.stopPropagation();']);
-				if (!empty($e911_edit_url)) {
-					echo " | ";
-					echo button::create(['type'=>'button','class'=>'link','label'=>$text['label-e911'],'link'=>$e911_edit_url,'onclick'=>'event.stopPropagation();']);
-				}
 				echo "&nbsp;</td>\n";
 			} else {
-				// Show Disconnect and E911 buttons if no domain and user has purchase permission
+				// Show Disconnect button if no domain and user has purchase permission
 				if (permission_exists('bulkvs_purchase')) {
 					$disconnect_modal_id = 'modal-disconnect-' . preg_replace('/[^0-9]/', '', $tn);
 					echo "	<td class='no-link' style='max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>";
 					echo button::create(['type'=>'button','class'=>'link','label'=>$text['label-disconnect'],'onclick'=>"event.stopPropagation(); modal_open('".$disconnect_modal_id."');"]);
-					if (!empty($e911_edit_url)) {
-						echo " | ";
-						echo button::create(['type'=>'button','class'=>'link','label'=>$text['label-e911'],'link'=>$e911_edit_url,'onclick'=>'event.stopPropagation();']);
-					}
 					echo "&nbsp;</td>\n";
 				} else {
-					if (!empty($e911_edit_url)) {
-						echo "	<td class='no-link' style='max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>";
-						echo button::create(['type'=>'button','class'=>'link','label'=>$text['label-e911'],'link'=>$e911_edit_url,'onclick'=>'event.stopPropagation();']);
-						echo "&nbsp;</td>\n";
-					} else {
-						echo "	<td style='max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>&nbsp;</td>\n";
-					}
+					echo "	<td style='max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;'>&nbsp;</td>\n";
 				}
 			}
 			
