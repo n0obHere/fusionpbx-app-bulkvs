@@ -188,8 +188,8 @@ $text['label-lrn-lookup']['en-gb'] = "LRN Lookup";
 $text['title-bulkvs-lrn']['en-us'] = "LRN Lookup";
 $text['title-bulkvs-lrn']['en-gb'] = "LRN Lookup";
 
-$text['description-lrn-lookup']['en-us'] = "Enter a phone number to lookup LRN (Local Routing Number) information including OCN, LATA, LEC, and other details.";
-$text['description-lrn-lookup']['en-gb'] = "Enter a phone number to lookup LRN (Local Routing Number) information including OCN, LATA, LEC, and other details.";
+$text['description-lrn-lookup']['en-us'] = "Enter a phone number to lookup CNAM (Caller ID Name) and LRN (Local Routing Number) information including OCN, LATA, LEC, and other details.";
+$text['description-lrn-lookup']['en-gb'] = "Enter a phone number to lookup CNAM (Caller ID Name) and LRN (Local Routing Number) information including OCN, LATA, LEC, and other details.";
 
 $text['button-submit']['en-us'] = "Submit";
 $text['button-submit']['en-gb'] = "Submit";

@@ -47,7 +47,9 @@
 //process form submission
 	$phone_number = $_POST['phone_number'] ?? $_GET['phone_number'] ?? '';
 	$lrn_result = null;
+	$cnam_result = null;
 	$error_message = '';
+	$cnam_error_message = '';
 
 	if (!empty($phone_number)) {
 		if (empty($http_secret)) {
@@ -65,6 +67,41 @@
 				
 				if (strlen($phone_clean) != 10) {
 					throw new Exception("Phone number must be 10 digits");
+				}
+				
+				// Perform CNAM lookup
+				try {
+					$cnam_url = "https://cnam.bulkvs.com/?id=" . urlencode($http_secret) . "&did=" . urlencode($phone_clean);
+					
+					$ch_cnam = curl_init();
+					curl_setopt($ch_cnam, CURLOPT_URL, $cnam_url);
+					curl_setopt($ch_cnam, CURLOPT_RETURNTRANSFER, 1);
+					curl_setopt($ch_cnam, CURLOPT_CONNECTTIMEOUT, 30);
+					curl_setopt($ch_cnam, CURLOPT_TIMEOUT, 60);
+					curl_setopt($ch_cnam, CURLOPT_SSL_VERIFYPEER, true);
+					curl_setopt($ch_cnam, CURLOPT_SSL_VERIFYHOST, 2);
+					
+					$cnam_response = curl_exec($ch_cnam);
+					$cnam_http_code = curl_getinfo($ch_cnam, CURLINFO_HTTP_CODE);
+					$cnam_curl_error = curl_error($ch_cnam);
+					curl_close($ch_cnam);
+					
+					if ($cnam_curl_error) {
+						throw new Exception("CURL Error: " . $cnam_curl_error);
+					}
+					
+					if ($cnam_http_code >= 400) {
+						throw new Exception("HTTP Error: " . $cnam_http_code);
+					}
+					
+					// CNAM returns plain text, so just store it as-is
+					$cnam_result = trim($cnam_response);
+					if (empty($cnam_result)) {
+						$cnam_result = null;
+					}
+				} catch (Exception $e) {
+					$cnam_error_message = $e->getMessage();
+					// Don't fail the whole lookup if CNAM fails
 				}
 				
 				// Build LRN lookup URL
@@ -136,7 +173,24 @@
 	echo "</div>\n";
 	echo "<br />\n";
 	
-	// Display results
+	// Display CNAM results
+	if (!empty($cnam_result) || !empty($cnam_error_message)) {
+		echo "<div class='card'>\n";
+		echo "	<div class='subheading'>CNAM Lookup Results</div>\n";
+		echo "	<div style='padding: 15px;'>\n";
+		if (!empty($cnam_result)) {
+			echo "		<div style='font-size: 16px; font-weight: bold;'>".escape($cnam_result)."</div>\n";
+		} elseif (!empty($cnam_error_message)) {
+			echo "		<div class='alert alert-warning'>".escape($cnam_error_message)."</div>\n";
+		} else {
+			echo "		<div>No CNAM information available</div>\n";
+		}
+		echo "	</div>\n";
+		echo "</div>\n";
+		echo "<br />\n";
+	}
+	
+	// Display LRN results
 	if (!empty($lrn_result)) {
 		echo "<div class='card'>\n";
 		echo "	<div class='subheading'>LRN Lookup Results</div>\n";
