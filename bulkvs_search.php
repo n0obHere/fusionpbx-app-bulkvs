@@ -77,6 +77,11 @@
 		
 		// Handle domain selection - if domain name is provided, look up UUID
 		if (!empty($_POST['purchase_domain_name']) && empty($purchase_domain_uuid)) {
+			// Initialize database if not already set
+			if (!isset($database) || $database === null) {
+				$database = new database;
+			}
+			
 			$domain_name = trim($_POST['purchase_domain_name']);
 			$sql = "select domain_uuid from v_domains where domain_name = :domain_name and domain_enabled = true limit 1";
 			$parameters['domain_name'] = $domain_name;
@@ -163,6 +168,11 @@
 				$array['destinations'][0]['destination_enabled'] = 'true';
 				$array['destinations'][0]['destination_description'] = !empty($purchase_reference_id) ? $purchase_reference_id : '';
 
+				// Initialize database if not already set
+				if (!isset($database) || $database === null) {
+					$database = new database;
+				}
+				
 				// Grant temporary permissions
 				$p = permissions::new();
 				$p->add('destination_add', 'temp');
@@ -283,6 +293,11 @@
 
 //get list of domains for purchase dropdown
 	$domains = [];
+	// Initialize database if not already set
+	if (!isset($database) || $database === null) {
+		$database = new database;
+	}
+	
 	if (permission_exists('domain_all') || permission_exists('domain_select')) {
 		$sql = "select domain_uuid, domain_name ";
 		$sql .= "from v_domains ";

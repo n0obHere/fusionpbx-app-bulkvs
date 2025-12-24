@@ -58,6 +58,11 @@
 //handle force reset request (reset sync_in_progress flag)
 	if ($force_reset) {
 		try {
+			// Initialize database if not already set
+			if (!isset($database) || $database === null) {
+				$database = new database;
+			}
+			
 			$sql = "UPDATE v_bulkvs_sync_status SET sync_in_progress = false WHERE sync_type = :sync_type";
 			$database->execute($sql, ['sync_type' => $sync_type]);
 			echo json_encode(['success' => true, 'message' => 'Force reset successful']);
