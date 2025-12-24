@@ -191,6 +191,10 @@
 //get filter parameter
 	$filter = $_GET['filter'] ?? $_POST['filter'] ?? '';
 
+//get order and order by
+	$order_by = $_GET['order_by'] ?? 'tn';
+	$order = $_GET['order'] ?? 'asc';
+
 //apply server-side filter to all numbers
 	if (!empty($filter)) {
 		$filter_lower = strtolower($filter);
@@ -222,12 +226,94 @@
 		$numbers = array_values($numbers); // Re-index array
 	}
 
+//sort the numbers array
+	if (!empty($numbers) && !empty($order_by)) {
+		usort($numbers, function($a, $b) use ($order_by, $order) {
+			$value_a = '';
+			$value_b = '';
+			
+			switch ($order_by) {
+				case 'tn':
+					$value_a = $a['TN'] ?? $a['tn'] ?? $a['telephoneNumber'] ?? '';
+					$value_b = $b['TN'] ?? $b['tn'] ?? $b['telephoneNumber'] ?? '';
+					break;
+				case 'status':
+					$value_a = $a['Status'] ?? $a['status'] ?? '';
+					$value_b = $b['Status'] ?? $b['status'] ?? '';
+					break;
+				case 'activation_date':
+					if (isset($a['TN Details']) && is_array($a['TN Details'])) {
+						$value_a = $a['TN Details']['Activation Date'] ?? $a['TN Details']['activation_date'] ?? '';
+					}
+					if (isset($b['TN Details']) && is_array($b['TN Details'])) {
+						$value_b = $b['TN Details']['Activation Date'] ?? $b['TN Details']['activation_date'] ?? '';
+					}
+					// Convert to timestamp for proper date sorting
+					if (!empty($value_a)) {
+						$ts_a = strtotime($value_a);
+						$value_a = $ts_a !== false ? $ts_a : 0;
+					} else {
+						$value_a = 0;
+					}
+					if (!empty($value_b)) {
+						$ts_b = strtotime($value_b);
+						$value_b = $ts_b !== false ? $ts_b : 0;
+					} else {
+						$value_b = 0;
+					}
+					break;
+				case 'rate_center':
+					if (isset($a['TN Details']) && is_array($a['TN Details'])) {
+						$value_a = $a['TN Details']['Rate Center'] ?? $a['TN Details']['rate_center'] ?? '';
+					}
+					if (isset($b['TN Details']) && is_array($b['TN Details'])) {
+						$value_b = $b['TN Details']['Rate Center'] ?? $b['TN Details']['rate_center'] ?? '';
+					}
+					break;
+				case 'tier':
+					if (isset($a['TN Details']) && is_array($a['TN Details'])) {
+						$value_a = $a['TN Details']['Tier'] ?? $a['TN Details']['tier'] ?? '';
+					}
+					if (isset($b['TN Details']) && is_array($b['TN Details'])) {
+						$value_b = $b['TN Details']['Tier'] ?? $b['TN Details']['tier'] ?? '';
+					}
+					break;
+				case 'lidb':
+					$value_a = $a['Lidb'] ?? $a['lidb'] ?? '';
+					$value_b = $b['Lidb'] ?? $b['lidb'] ?? '';
+					break;
+				default:
+					return 0;
+			}
+			
+			// Compare values
+			if (is_numeric($value_a) && is_numeric($value_b)) {
+				$result = $value_a <=> $value_b;
+			} else {
+				$result = strcasecmp(strval($value_a), strval($value_b));
+			}
+			
+			return $order == 'desc' ? -$result : $result;
+		});
+	}
+
 //prepare to page the results
 	$num_rows = count($numbers);
 	$rows_per_page = $settings->get('domain', 'paging', 50);
 	$param = "";
 	if (!empty($filter)) {
 		$param = "&filter=".urlencode($filter);
+	}
+	if (!empty($order_by)) {
+		$param .= "&order_by=".urlencode($order_by);
+	}
+	if (!empty($order)) {
+		$param .= "&order=".urlencode($order);
+	}
+	// Build param for th_order_by (only filter, order_by/order will be added by th_order_by)
+	$th_order_by_param = "";
+	if (!empty($filter)) {
+		$th_order_by_param = "&filter=".urlencode($filter);
 	}
 	if (!empty($_GET['page'])) {
 		$page = $_GET['page'];
@@ -403,12 +489,12 @@
 		echo "<div class='card'>\n";
 		echo "<table class='list' id='numbers_table'>\n";
 		echo "<tr class='list-header'>\n";
-		echo "	<th>".$text['label-telephone-number']."</th>\n";
-		echo "	<th>".$text['label-status']."</th>\n";
-		echo "	<th>".$text['label-activation-date']."</th>\n";
-		echo "	<th>".$text['label-rate-center']."</th>\n";
-		echo "	<th>".$text['label-tier']."</th>\n";
-		echo "	<th>".$text['label-lidb']."</th>\n";
+		echo "	".th_order_by('tn', $text['label-telephone-number'], $order_by, $order, '', '', $th_order_by_param)."\n";
+		echo "	".th_order_by('status', $text['label-status'], $order_by, $order, '', '', $th_order_by_param)."\n";
+		echo "	".th_order_by('activation_date', $text['label-activation-date'], $order_by, $order, '', '', $th_order_by_param)."\n";
+		echo "	".th_order_by('rate_center', $text['label-rate-center'], $order_by, $order, '', '', $th_order_by_param)."\n";
+		echo "	".th_order_by('tier', $text['label-tier'], $order_by, $order, '', '', $th_order_by_param)."\n";
+		echo "	".th_order_by('lidb', $text['label-lidb'], $order_by, $order, '', '', $th_order_by_param)."\n";
 		echo "	<th>".$text['label-notes']."</th>\n";
 		echo "	<th>".$text['label-domain']."</th>\n";
 		echo "	<th>".$text['label-e911']."</th>\n";

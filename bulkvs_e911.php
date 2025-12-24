@@ -148,6 +148,10 @@
 //get filter parameter
 	$filter = $_GET['filter'] ?? $_POST['filter'] ?? '';
 
+//get order and order by
+	$order_by = $_GET['order_by'] ?? 'tn';
+	$order = $_GET['order'] ?? 'asc';
+
 //apply server-side filter to all E911 records
 	if (!empty($filter)) {
 		$filter_lower = strtolower($filter);
@@ -172,12 +176,78 @@
 		$e911_records = array_values($e911_records); // Re-index array
 	}
 
+//sort the E911 records array
+	if (!empty($e911_records) && !empty($order_by)) {
+		usort($e911_records, function($a, $b) use ($order_by, $order) {
+			$value_a = '';
+			$value_b = '';
+			
+			switch ($order_by) {
+				case 'tn':
+					$value_a = $a['TN'] ?? $a['tn'] ?? '';
+					$value_b = $b['TN'] ?? $b['tn'] ?? '';
+					break;
+				case 'caller_name':
+					$value_a = $a['Caller Name'] ?? $a['callerName'] ?? '';
+					$value_b = $b['Caller Name'] ?? $b['callerName'] ?? '';
+					break;
+				case 'address':
+					// Build address string for comparison
+					$addr_a_parts = [];
+					$addr_b_parts = [];
+					if (!empty($a['Address Line 1'] ?? $a['addressLine1'] ?? '')) {
+						$addr_a_parts[] = $a['Address Line 1'] ?? $a['addressLine1'] ?? '';
+					}
+					if (!empty($a['City'] ?? $a['city'] ?? '')) {
+						$addr_a_parts[] = $a['City'] ?? $a['city'] ?? '';
+					}
+					if (!empty($a['State'] ?? $a['state'] ?? '')) {
+						$addr_a_parts[] = $a['State'] ?? $a['state'] ?? '';
+					}
+					if (!empty($b['Address Line 1'] ?? $b['addressLine1'] ?? '')) {
+						$addr_b_parts[] = $b['Address Line 1'] ?? $b['addressLine1'] ?? '';
+					}
+					if (!empty($b['City'] ?? $b['city'] ?? '')) {
+						$addr_b_parts[] = $b['City'] ?? $b['city'] ?? '';
+					}
+					if (!empty($b['State'] ?? $b['state'] ?? '')) {
+						$addr_b_parts[] = $b['State'] ?? $b['state'] ?? '';
+					}
+					$value_a = implode(', ', $addr_a_parts);
+					$value_b = implode(', ', $addr_b_parts);
+					break;
+				default:
+					return 0;
+			}
+			
+			// Compare values
+			if (is_numeric($value_a) && is_numeric($value_b)) {
+				$result = $value_a <=> $value_b;
+			} else {
+				$result = strcasecmp(strval($value_a), strval($value_b));
+			}
+			
+			return $order == 'desc' ? -$result : $result;
+		});
+	}
+
 //prepare to page the results
 	$num_rows = count($e911_records);
 	$rows_per_page = $settings->get('domain', 'paging', 50);
 	$param = "";
 	if (!empty($filter)) {
 		$param = "&filter=".urlencode($filter);
+	}
+	if (!empty($order_by)) {
+		$param .= "&order_by=".urlencode($order_by);
+	}
+	if (!empty($order)) {
+		$param .= "&order=".urlencode($order);
+	}
+	// Build param for th_order_by (only filter, order_by/order will be added by th_order_by)
+	$th_order_by_param = "";
+	if (!empty($filter)) {
+		$th_order_by_param = "&filter=".urlencode($filter);
 	}
 	if (!empty($_GET['page'])) {
 		$page = $_GET['page'];
@@ -342,9 +412,9 @@
 		echo "<div class='card'>\n";
 		echo "<table class='list' id='e911_table'>\n";
 		echo "<tr class='list-header'>\n";
-		echo "	<th>".$text['label-telephone-number']."</th>\n";
-		echo "	<th>".$text['label-caller-name']."</th>\n";
-		echo "	<th>Address</th>\n";
+		echo "	".th_order_by('tn', $text['label-telephone-number'], $order_by, $order, '', '', $th_order_by_param)."\n";
+		echo "	".th_order_by('caller_name', $text['label-caller-name'], $order_by, $order, '', '', $th_order_by_param)."\n";
+		echo "	".th_order_by('address', 'Address', $order_by, $order, '', '', $th_order_by_param)."\n";
 		echo "	<th>".$text['label-domain']."</th>\n";
 		echo "</tr>\n";
 
