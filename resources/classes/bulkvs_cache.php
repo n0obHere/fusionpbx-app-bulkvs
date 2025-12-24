@@ -811,7 +811,11 @@ class bulkvs_cache {
 			$sql .= "current_record_count, sync_in_progress, sync_status, error_message) ";
 			$sql .= "VALUES ";
 			$sql .= "(gen_random_uuid(), :sync_type, :last_sync_start, :last_sync_end, :last_record_count, ";
-			$sql .= ":current_record_count, :sync_in_progress, :sync_status, :error_message) ";
+			$sql .= ":current_record_count, CAST(:sync_in_progress AS boolean), :sync_status, :error_message) ";
+			
+			// Convert sync_in_progress to integer (1/0) for PostgreSQL boolean casting
+			$sync_in_progress_val = isset($data['sync_in_progress']) ? $data['sync_in_progress'] : false;
+			$sync_in_progress_int = ($sync_in_progress_val === true || $sync_in_progress_val === 'true' || $sync_in_progress_val === 1 || $sync_in_progress_val === '1') ? 1 : 0;
 			
 			$parameters = [
 				'sync_type' => $sync_type,
@@ -819,7 +823,7 @@ class bulkvs_cache {
 				'last_sync_end' => $data['last_sync_end'] ?? null,
 				'last_record_count' => $data['last_record_count'] ?? 0,
 				'current_record_count' => $data['current_record_count'] ?? 0,
-				'sync_in_progress' => isset($data['sync_in_progress']) ? ($data['sync_in_progress'] ? true : false) : false,
+				'sync_in_progress' => $sync_in_progress_int,
 				'sync_status' => $data['sync_status'] ?? 'success',
 				'error_message' => $data['error_message'] ?? null
 			];
@@ -853,8 +857,10 @@ class bulkvs_cache {
 				$parameters['current_record_count'] = $data['current_record_count'];
 			}
 			if (isset($data['sync_in_progress'])) {
-				$updates[] = "sync_in_progress = :sync_in_progress";
-				$parameters['sync_in_progress'] = $data['sync_in_progress'] ? true : false;
+				// Convert to integer (1/0) and use CAST in SQL to handle FusionPBX's string conversion
+				$updates[] = "sync_in_progress = CAST(:sync_in_progress AS boolean)";
+				$sync_in_progress_val = $data['sync_in_progress'];
+				$parameters['sync_in_progress'] = ($sync_in_progress_val === true || $sync_in_progress_val === 'true' || $sync_in_progress_val === 1 || $sync_in_progress_val === '1') ? 1 : 0;
 			}
 			if (isset($data['sync_status'])) {
 				$updates[] = "sync_status = :sync_status";
@@ -883,9 +889,10 @@ class bulkvs_cache {
 						$expected = $data['sync_in_progress'] ? true : false;
 						$actual = isset($verify_status['sync_in_progress']) ? ($verify_status['sync_in_progress'] ? true : false) : null;
 						if ($actual !== $expected) {
-							// Force reset if mismatch
-							$sql_force = "UPDATE v_bulkvs_sync_status SET sync_in_progress = " . ($expected ? 'true' : 'false') . " WHERE sync_type = :sync_type";
-							$this->database->execute($sql_force, ['sync_type' => $sync_type]);
+							// Force reset if mismatch - use CAST with integer
+							$expected_int = $expected ? 1 : 0;
+							$sql_force = "UPDATE v_bulkvs_sync_status SET sync_in_progress = CAST(:sync_in_progress AS boolean) WHERE sync_type = :sync_type";
+							$this->database->execute($sql_force, ['sync_type' => $sync_type, 'sync_in_progress' => $expected_int]);
 						}
 					}
 				} catch (Exception $e) {
