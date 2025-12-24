@@ -64,6 +64,14 @@
 		$apps[$x]['default_settings'][$y]['default_setting_value'] = "https://portal.bulkvs.com/api/v1.0";
 		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = "true";
 		$apps[$x]['default_settings'][$y]['default_setting_description'] = "BulkVS API Base URL";
+		$y++;
+		$apps[$x]['default_settings'][$y]['default_setting_uuid'] = "a8f3c2d1-4e5b-6c7d-8e9f-0a1b2c3d4e5f";
+		$apps[$x]['default_settings'][$y]['default_setting_category'] = "bulkvs";
+		$apps[$x]['default_settings'][$y]['default_setting_subcategory'] = "http_secret";
+		$apps[$x]['default_settings'][$y]['default_setting_name'] = "text";
+		$apps[$x]['default_settings'][$y]['default_setting_value'] = "";
+		$apps[$x]['default_settings'][$y]['default_setting_enabled'] = "true";
+		$apps[$x]['default_settings'][$y]['default_setting_description'] = "BulkVS HTTP Secret (for LRN & CNAM lookup)";
 
 	//permission details
 		$y=0;

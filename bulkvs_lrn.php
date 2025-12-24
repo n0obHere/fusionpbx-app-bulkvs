@@ -41,8 +41,8 @@
 //initialize the settings object
 	$settings = new settings(['database' => $database, 'domain_uuid' => $domain_uuid]);
 
-//get API key from settings
-	$api_key = $settings->get('bulkvs', 'api_secret', '');
+//get HTTP secret from settings
+	$http_secret = $settings->get('bulkvs', 'http_secret', '');
 
 //process form submission
 	$phone_number = $_POST['phone_number'] ?? $_GET['phone_number'] ?? '';
@@ -50,8 +50,8 @@
 	$error_message = '';
 
 	if (!empty($phone_number)) {
-		if (empty($api_key)) {
-			$error_message = "API key not configured";
+		if (empty($http_secret)) {
+			$error_message = "HTTP secret not configured";
 		} else {
 			try {
 				// Clean phone number (remove non-numeric characters except +)
@@ -68,7 +68,7 @@
 				}
 				
 				// Build LRN lookup URL
-				$lrn_url = "http://lrn.bulkvs.com/?id=" . urlencode($api_key) . "&did=" . urlencode($phone_clean) . "&ani=" . urlencode($phone_clean) . "&format=json";
+				$lrn_url = "http://lrn.bulkvs.com/?id=" . urlencode($http_secret) . "&did=" . urlencode($phone_clean) . "&ani=" . urlencode($phone_clean) . "&format=json";
 				
 				// Make the API request
 				$ch = curl_init();
