@@ -261,6 +261,11 @@
 		
 		// Query destinations for these numbers
 		if (!empty($tn_10_digit)) {
+			// Initialize database if not already set
+			if (!isset($database) || $database === null) {
+				$database = new database;
+			}
+			
 			$placeholders = [];
 			$parameters = [];
 			foreach ($tn_10_digit as $index => $tn_10) {
@@ -307,6 +312,10 @@
 				$sql = "select domain_uuid, domain_name ";
 				$sql .= "from v_domains ";
 				$sql .= "where domain_uuid in (" . implode(', ', $placeholders) . ") ";
+				// Initialize database if not already set
+				if (!isset($database) || $database === null) {
+					$database = new database;
+				}
 				$domains = $database->select($sql, $parameters, 'all');
 				unset($sql, $parameters);
 				
