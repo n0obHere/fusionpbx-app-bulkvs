@@ -356,6 +356,7 @@
 	echo "</span>\n";
 	if (permission_exists('bulkvs_view')) {
 		echo button::create(['type'=>'button','label'=>$text['label-e911'],'icon'=>'phone','link'=>'bulkvs_e911.php']);
+		echo button::create(['type'=>'button','label'=>$text['label-lrn-lookup'],'icon'=>'search','link'=>'bulkvs_lrn.php']);
 	}
 	if (permission_exists('bulkvs_search')) {
 		echo button::create(['type'=>'button','label'=>$text['title-bulkvs-search'],'icon'=>'search','link'=>'bulkvs_search.php']);
