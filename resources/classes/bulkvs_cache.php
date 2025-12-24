@@ -301,8 +301,15 @@ class bulkvs_cache {
 				$mms = false;
 				if (isset($number['Messaging']) && is_array($number['Messaging'])) {
 					$messaging = $number['Messaging'];
-					$sms = isset($messaging['Sms']) ? (bool)$messaging['Sms'] : false;
-					$mms = isset($messaging['Mms']) ? (bool)$messaging['Mms'] : false;
+					// Ensure boolean values - convert empty strings to false
+					if (isset($messaging['Sms'])) {
+						$sms_val = $messaging['Sms'];
+						$sms = ($sms_val === true || $sms_val === 'true' || $sms_val === 1 || $sms_val === '1') ? true : false;
+					}
+					if (isset($messaging['Mms'])) {
+						$mms_val = $messaging['Mms'];
+						$mms = ($mms_val === true || $mms_val === 'true' || $mms_val === 1 || $mms_val === '1') ? true : false;
+					}
 				}
 				
 				// Prepare data for insert/update
@@ -352,8 +359,11 @@ class bulkvs_cache {
 					}
 				}
 				
-				// Keep booleans as PHP booleans - PostgreSQL PDO should handle them
-				// But FusionPBX's database class might need them differently
+				// Ensure booleans are actual PHP booleans (not empty strings) for PostgreSQL
+				// FusionPBX's database class may convert booleans to strings, so we need to be explicit
+				$sms_bool = ($sms === true || $sms === 'true' || $sms === 1 || $sms === '1') ? true : false;
+				$mms_bool = ($mms === true || $mms === 'true' || $mms === 1 || $mms === '1') ? true : false;
+				
 				$parameters = [
 					'tn' => $tn,
 					'status' => $status,
@@ -362,8 +372,8 @@ class bulkvs_cache {
 					'tier' => $tier,
 					'lidb' => $lidb,
 					'reference_id' => $reference_id,
-					'sms' => $sms, // Keep as PHP boolean
-					'mms' => $mms, // Keep as PHP boolean
+					'sms' => $sms_bool,
+					'mms' => $mms_bool,
 					'portout_pin' => $portout_pin,
 					'trunk_group' => $trunk_group,
 					'data_json' => $data_json
