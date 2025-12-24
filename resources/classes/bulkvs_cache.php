@@ -357,17 +357,13 @@ class bulkvs_cache {
 				// Prepare data for insert/update
 				$data_json = json_encode($number);
 				
+				// Simplified SQL - remove the complex COALESCE subquery that might be causing issues
 				$sql = "INSERT INTO v_bulkvs_numbers_cache ";
 				$sql .= "(cache_uuid, tn, status, activation_date, rate_center, tier, lidb, reference_id, ";
 				$sql .= "sms, mms, portout_pin, trunk_group, data_json, last_updated, created) ";
 				$sql .= "VALUES ";
 				$sql .= "(gen_random_uuid(), :tn, :status, :activation_date, :rate_center, :tier, :lidb, :reference_id, ";
-				$sql .= ":sms, :mms, :portout_pin, :trunk_group, :data_json::jsonb, CURRENT_TIMESTAMP, ";
-				$sql .= "COALESCE((SELECT created FROM v_bulkvs_numbers_cache WHERE tn = :tn ";
-				if (!empty($trunk_group)) {
-					$sql .= "AND trunk_group = :trunk_group ";
-				}
-				$sql .= "LIMIT 1), CURRENT_TIMESTAMP)) ";
+				$sql .= ":sms, :mms, :portout_pin, :trunk_group, :data_json::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ";
 				$sql .= "ON CONFLICT (tn) DO UPDATE SET ";
 				$sql .= "status = EXCLUDED.status, ";
 				$sql .= "activation_date = EXCLUDED.activation_date, ";
@@ -404,6 +400,33 @@ class bulkvs_cache {
 					// Log execute result for debugging
 					if ($failed_count < 3) {
 						error_log("BulkVS: execute() returned: " . var_export($result, true) . " for TN $tn");
+						
+						// Try to get database error if available - check multiple possible methods
+						if ($result === false) {
+							// Try PDO errorInfo if database object has a PDO connection
+							if (property_exists($this->database, 'pdo') && is_object($this->database->pdo)) {
+								$error_info = $this->database->pdo->errorInfo();
+								error_log("BulkVS: PDO errorInfo: " . json_encode($error_info));
+							}
+							// Try errorInfo method
+							if (method_exists($this->database, 'errorInfo')) {
+								$error_info = $this->database->errorInfo();
+								error_log("BulkVS: Database errorInfo method: " . json_encode($error_info));
+							}
+							// Try error property
+							if (property_exists($this->database, 'error')) {
+								error_log("BulkVS: Database error property: " . $this->database->error);
+							}
+							// Try lastError
+							if (property_exists($this->database, 'lastError')) {
+								error_log("BulkVS: Database lastError: " . $this->database->lastError);
+							}
+							// Log full SQL for first failure to debug
+							if ($failed_count == 0) {
+								error_log("BulkVS: Full SQL for first failure: " . $sql);
+								error_log("BulkVS: Full parameters for first failure: " . json_encode($parameters));
+							}
+						}
 					}
 					
 					// Verify the insert actually worked by checking if the record exists
