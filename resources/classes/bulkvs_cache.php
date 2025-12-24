@@ -310,6 +310,7 @@ class bulkvs_cache {
 			foreach ($numbers as $number) {
 				$tn = $number['TN'] ?? $number['tn'] ?? $number['telephoneNumber'] ?? '';
 				if (empty($tn)) {
+					error_log("BulkVS: Skipping number with empty TN: " . json_encode(array_keys($number)));
 					continue;
 				}
 				
@@ -588,10 +589,13 @@ class bulkvs_cache {
 					}
 				} catch (Exception $e) {
 					$failed_count++;
-					if ($failed_count <= 5) {
-						error_log("BulkVS cache insert error for TN $tn: " . $e->getMessage());
+					error_log("BulkVS cache insert error for TN $tn: " . $e->getMessage());
+					if ($failed_count <= 10) {
 						error_log("BulkVS: SQL: " . substr($sql, 0, 500));
 						error_log("BulkVS: Parameters keys: " . implode(', ', array_keys($parameters)));
+						if (property_exists($this->database, 'message') && is_array($this->database->message)) {
+							error_log("BulkVS: Database error: " . ($this->database->message['message'] ?? 'Unknown'));
+						}
 					}
 					// Don't throw - continue with other records
 				}
@@ -615,13 +619,15 @@ class bulkvs_cache {
 			}
 			
 			// Remove numbers from cache that are no longer in API response (if trunk_group is specified)
-			if (!empty($trunk_group)) {
+			// Only do this if we successfully inserted all numbers
+			if (!empty($trunk_group) && $failed_count == 0) {
 				$tn_list = array_map(function($n) {
 					return $n['TN'] ?? $n['tn'] ?? $n['telephoneNumber'] ?? '';
 				}, $numbers);
 				$tn_list = array_filter($tn_list);
 				
-				if (!empty($tn_list)) {
+				if (!empty($tn_list) && count($tn_list) == $total_records) {
+					// Only delete if we have all TNs and no failures
 					$placeholders = [];
 					$delete_params = ['trunk_group' => $trunk_group];
 					foreach ($tn_list as $index => $tn) {
@@ -633,12 +639,35 @@ class bulkvs_cache {
 					$sql_delete .= "WHERE trunk_group = :trunk_group ";
 					$sql_delete .= "AND tn NOT IN (" . implode(', ', $placeholders) . ") ";
 					
-					$this->database->execute($sql_delete, $delete_params);
+					try {
+						$delete_result = $this->database->execute($sql_delete, $delete_params);
+						$deleted_count = is_array($delete_result) ? count($delete_result) : 0;
+						error_log("BulkVS: Deleted $deleted_count numbers no longer in API response");
+					} catch (Exception $delete_e) {
+						error_log("BulkVS: Error deleting old numbers: " . $delete_e->getMessage());
+					}
+				} else {
+					error_log("BulkVS: Skipping DELETE - failed_count: $failed_count, tn_list count: " . count($tn_list) . ", total_records: $total_records");
 				}
+			} elseif (!empty($trunk_group)) {
+				error_log("BulkVS: Skipping DELETE due to $failed_count failed inserts");
 			}
+			
+			// Count actual records in database after sync
+			$verify_count_sql = "SELECT COUNT(*) as count FROM v_bulkvs_numbers_cache ";
+			if (!empty($trunk_group)) {
+				$verify_count_sql .= "WHERE trunk_group = :trunk_group ";
+				$verify_count_params = ['trunk_group' => $trunk_group];
+			} else {
+				$verify_count_params = [];
+			}
+			$verify_count_result = $this->database->select($verify_count_sql, $verify_count_params, 'row');
+			$actual_count = isset($verify_count_result['count']) ? (int)$verify_count_result['count'] : 0;
 			
 			$total_records = count($numbers);
 			$last_record_count = $current_count;
+			
+			error_log("BulkVS: Sync complete - API returned $total_records numbers, inserted $inserted_count, failed $failed_count, actual DB count: $actual_count");
 			
 			// Update sync status - MUST reset sync_in_progress
 			error_log("BulkVS: Updating sync status - resetting sync_in_progress to false");
@@ -648,17 +677,28 @@ class bulkvs_cache {
 					'sync_status' => 'success',
 					'last_sync_end' => date('Y-m-d H:i:s'),
 					'last_record_count' => $last_record_count,
-					'current_record_count' => $total_records,
+					'current_record_count' => $actual_count, // Use actual DB count, not API count
 					'error_message' => null
 				]);
 				error_log("BulkVS: Sync status updated successfully");
+				
+				// Verify it was actually updated
+				$verify_status = $this->getSyncStatus('numbers');
+				if ($verify_status && isset($verify_status['sync_in_progress']) && $verify_status['sync_in_progress']) {
+					error_log("BulkVS: WARNING - sync_in_progress still true after update! Force resetting...");
+					// Force reset one more time
+					$sql_force = "UPDATE v_bulkvs_sync_status SET sync_in_progress = false WHERE sync_type = 'numbers'";
+					$this->database->execute($sql_force, null);
+					error_log("BulkVS: Force reset completed");
+				}
 			} catch (Exception $status_error) {
 				error_log("BulkVS: ERROR updating sync status: " . $status_error->getMessage());
+				error_log("BulkVS: Status error trace: " . $status_error->getTraceAsString());
 				// Try to force reset the flag
 				try {
 					$sql_reset = "UPDATE v_bulkvs_sync_status SET sync_in_progress = false, sync_status = 'success' WHERE sync_type = 'numbers'";
-					$this->database->execute($sql_reset, null);
-					error_log("BulkVS: Force reset sync_in_progress flag");
+					$reset_result = $this->database->execute($sql_reset, null);
+					error_log("BulkVS: Force reset sync_in_progress flag - result: " . var_export($reset_result, true));
 				} catch (Exception $reset_error) {
 					error_log("BulkVS: ERROR force resetting sync flag: " . $reset_error->getMessage());
 				}
@@ -666,9 +706,11 @@ class bulkvs_cache {
 			
 			return [
 				'success' => true,
-				'new_records' => $total_records - $last_record_count,
-				'total_records' => $total_records,
-				'updated_count' => $inserted_count
+				'new_records' => $actual_count - $last_record_count,
+				'total_records' => $actual_count, // Return actual DB count
+				'updated_count' => $inserted_count,
+				'failed_count' => $failed_count,
+				'api_count' => $total_records
 			];
 			
 		} catch (Exception $e) {
@@ -1045,8 +1087,27 @@ class bulkvs_cache {
 				$sql .= implode(', ', $updates);
 				$sql .= " WHERE sync_type = :sync_type ";
 				try {
-					$this->database->execute($sql, $parameters);
+					$update_result = $this->database->execute($sql, $parameters);
 					error_log("BulkVS: Updated sync status for " . $sync_type . " - sync_in_progress: " . (isset($data['sync_in_progress']) ? ($data['sync_in_progress'] ? 'true' : 'false') : 'not set'));
+					
+					// Check if update failed
+					if ($update_result === false && property_exists($this->database, 'message') && is_array($this->database->message)) {
+						$error_msg = $this->database->message['message'] ?? 'Unknown error';
+						error_log("BulkVS: Sync status update FAILED: $error_msg");
+						throw new Exception("Sync status update failed: $error_msg");
+					}
+					
+					// Verify the update worked by reading it back
+					$verify_status = $this->getSyncStatus($sync_type);
+					if ($verify_status && isset($data['sync_in_progress'])) {
+						$expected = $data['sync_in_progress'] ? true : false;
+						$actual = isset($verify_status['sync_in_progress']) ? ($verify_status['sync_in_progress'] ? true : false) : null;
+						if ($actual !== $expected) {
+							error_log("BulkVS: WARNING - sync_in_progress mismatch! Expected: " . ($expected ? 'true' : 'false') . ", Got: " . var_export($actual, true));
+						} else {
+							error_log("BulkVS: Verified sync_in_progress is correctly set to " . ($expected ? 'true' : 'false'));
+						}
+					}
 				} catch (Exception $e) {
 					error_log("BulkVS: ERROR executing sync status update: " . $e->getMessage());
 					error_log("BulkVS: SQL: " . $sql);
