@@ -328,18 +328,23 @@ class bulkvs_cache {
 				
 				$existing = $this->database->select($check_sql, $check_params, 'row');
 				
+				// Ensure booleans are actual PHP booleans (not empty strings) for PostgreSQL
+				// FusionPBX's database class may convert booleans to strings, so we need to be explicit
+				$sms_bool = ($sms === true || $sms === 'true' || $sms === 1 || $sms === '1') ? true : false;
+				$mms_bool = ($mms === true || $mms === 'true' || $mms === 1 || $mms === '1') ? true : false;
+				
 				if (empty($existing)) {
 					$new_count++;
-					// INSERT new record
+					// INSERT new record - use explicit boolean casting in SQL
 					$sql = "INSERT INTO v_bulkvs_numbers_cache ";
 					$sql .= "(cache_uuid, tn, status, activation_date, rate_center, tier, lidb, reference_id, ";
 					$sql .= "sms, mms, portout_pin, trunk_group, data_json, last_updated, created) ";
 					$sql .= "VALUES ";
 					$sql .= "(gen_random_uuid(), :tn, :status, :activation_date, :rate_center, :tier, :lidb, :reference_id, ";
-					$sql .= ":sms, :mms, :portout_pin, :trunk_group, :data_json::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ";
+					$sql .= "CAST(:sms AS boolean), CAST(:mms AS boolean), :portout_pin, :trunk_group, :data_json::jsonb, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP) ";
 				} else {
 					$updated_count++;
-					// UPDATE existing record
+					// UPDATE existing record - use explicit boolean casting in SQL
 					$sql = "UPDATE v_bulkvs_numbers_cache SET ";
 					$sql .= "status = :status, ";
 					$sql .= "activation_date = :activation_date, ";
@@ -347,8 +352,8 @@ class bulkvs_cache {
 					$sql .= "tier = :tier, ";
 					$sql .= "lidb = :lidb, ";
 					$sql .= "reference_id = :reference_id, ";
-					$sql .= "sms = :sms, ";
-					$sql .= "mms = :mms, ";
+					$sql .= "sms = CAST(:sms AS boolean), ";
+					$sql .= "mms = CAST(:mms AS boolean), ";
 					$sql .= "portout_pin = :portout_pin, ";
 					$sql .= "trunk_group = :trunk_group, ";
 					$sql .= "data_json = :data_json::jsonb, ";
@@ -359,10 +364,10 @@ class bulkvs_cache {
 					}
 				}
 				
-				// Ensure booleans are actual PHP booleans (not empty strings) for PostgreSQL
-				// FusionPBX's database class may convert booleans to strings, so we need to be explicit
-				$sms_bool = ($sms === true || $sms === 'true' || $sms === 1 || $sms === '1') ? true : false;
-				$mms_bool = ($mms === true || $mms === 'true' || $mms === 1 || $mms === '1') ? true : false;
+				// Convert booleans to integers (1/0) that PostgreSQL can cast to boolean
+				// This handles the case where FusionPBX's database class converts booleans to empty strings
+				$sms_param = $sms_bool ? 1 : 0;
+				$mms_param = $mms_bool ? 1 : 0;
 				
 				$parameters = [
 					'tn' => $tn,
@@ -372,8 +377,8 @@ class bulkvs_cache {
 					'tier' => $tier,
 					'lidb' => $lidb,
 					'reference_id' => $reference_id,
-					'sms' => $sms_bool,
-					'mms' => $mms_bool,
+					'sms' => $sms_param,
+					'mms' => $mms_param,
 					'portout_pin' => $portout_pin,
 					'trunk_group' => $trunk_group,
 					'data_json' => $data_json
