@@ -168,51 +168,105 @@
 			// Check if destination already exists for this number
 			$destination_number = preg_replace('/[^0-9]/', '', $park_tn); // Remove non-numeric characters
 			$tn_10 = preg_replace('/^1/', '', $destination_number); // Convert to 10-digit
+			$existing_destination_uuid = null;
 			if (strlen($tn_10) == 10) {
 				$sql = "select destination_uuid from v_destinations where destination_number = :destination_number and destination_type = 'inbound' and destination_enabled = 'true' limit 1";
 				$parameters['destination_number'] = $tn_10;
 				$existing_destination_uuid = $database->select($sql, $parameters, 'column');
 				unset($sql, $parameters);
-				
-				if (!empty($existing_destination_uuid)) {
-					// Destination already exists, redirect to edit page
-					message::add($text['message-park-success']);
-					header("Location: ../destinations/destination_edit.php?id=".urlencode($existing_destination_uuid));
-					return;
-				}
 			}
 			
-			// Create destination in FusionPBX (similar to purchase flow)
 			require_once dirname(__DIR__, 2) . "/app/destinations/resources/classes/destinations.php";
-			$destination = new destinations(['database' => $database, 'domain_uuid' => $park_domain_uuid]);
 			
-			$destination_uuid = uuid();
-			
-			// Prepare destination array
-			$array['destinations'][0]['destination_uuid'] = $destination_uuid;
-			$array['destinations'][0]['domain_uuid'] = $park_domain_uuid;
-			$array['destinations'][0]['destination_type'] = 'inbound';
-			$array['destinations'][0]['destination_number'] = $tn_10;
-			$array['destinations'][0]['destination_prefix'] = '1';
-			$array['destinations'][0]['destination_context'] = 'public';
-			$array['destinations'][0]['destination_enabled'] = 'true';
-			$array['destinations'][0]['destination_description'] = 'Parked number';
-			
-			// Grant temporary permissions
-			$p = permissions::new();
-			$p->add('destination_add', 'temp');
-			$p->add('dialplan_add', 'temp');
-			$p->add('dialplan_detail_add', 'temp');
-			
-			// Save the destination
-			$database->app_name = 'destinations';
-			$database->app_uuid = '5ec89622-b19c-3559-64f0-afde802ab139';
-			$database->save($array);
-			
-			// Revoke temporary permissions
-			$p->delete('destination_add', 'temp');
-			$p->delete('dialplan_add', 'temp');
-			$p->delete('dialplan_detail_add', 'temp');
+			if (!empty($existing_destination_uuid)) {
+				// Destination already exists, update domain to park domain
+				$sql = "select * from v_destinations where destination_uuid = :destination_uuid limit 1";
+				$parameters['destination_uuid'] = $existing_destination_uuid;
+				$destination = $database->select($sql, $parameters, 'row');
+				unset($sql, $parameters);
+				
+				if (empty($destination)) {
+					throw new Exception("Destination not found");
+				}
+				
+				$destinations = new destinations(['database' => $database, 'domain_uuid' => $park_domain_uuid]);
+				
+				// Prepare update array - preserve all existing fields, only change domain_uuid
+				$array['destinations'][0]['destination_uuid'] = $destination['destination_uuid'];
+				$array['destinations'][0]['domain_uuid'] = $park_domain_uuid; // Change to park domain
+				$array['destinations'][0]['destination_number'] = $destination['destination_number'];
+				$array['destinations'][0]['destination_type'] = $destination['destination_type'] ?? 'inbound';
+				$array['destinations'][0]['destination_prefix'] = $destination['destination_prefix'] ?? '1';
+				$array['destinations'][0]['destination_context'] = $destination['destination_context'] ?? 'public';
+				$array['destinations'][0]['destination_enabled'] = $destination['destination_enabled'] ?? 'true';
+				if (isset($destination['destination_description'])) {
+					$array['destinations'][0]['destination_description'] = $destination['destination_description'];
+				}
+				if (isset($destination['destination_caller_id_name'])) {
+					$array['destinations'][0]['destination_caller_id_name'] = $destination['destination_caller_id_name'];
+				}
+				if (isset($destination['destination_caller_id_number'])) {
+					$array['destinations'][0]['destination_caller_id_number'] = $destination['destination_caller_id_number'];
+				}
+				if (isset($destination['destination_accountcode'])) {
+					$array['destinations'][0]['destination_accountcode'] = $destination['destination_accountcode'];
+				}
+				if (isset($destination['destination_effective_caller_id_name'])) {
+					$array['destinations'][0]['destination_effective_caller_id_name'] = $destination['destination_effective_caller_id_name'];
+				}
+				if (isset($destination['destination_effective_caller_id_number'])) {
+					$array['destinations'][0]['destination_effective_caller_id_number'] = $destination['destination_effective_caller_id_number'];
+				}
+				
+				// Grant temporary permissions
+				$p = permissions::new();
+				$p->add('destination_edit', 'temp');
+				$p->add('dialplan_edit', 'temp');
+				$p->add('dialplan_detail_edit', 'temp');
+				
+				// Save the destination
+				$database->app_name = 'destinations';
+				$database->app_uuid = '5ec89622-b19c-3559-64f0-afde802ab139';
+				$database->save($array);
+				
+				// Revoke temporary permissions
+				$p->delete('destination_edit', 'temp');
+				$p->delete('dialplan_edit', 'temp');
+				$p->delete('dialplan_detail_edit', 'temp');
+				
+				$destination_uuid = $existing_destination_uuid;
+			} else {
+				// Create new destination in FusionPBX (similar to purchase flow)
+				$destination = new destinations(['database' => $database, 'domain_uuid' => $park_domain_uuid]);
+				
+				$destination_uuid = uuid();
+				
+				// Prepare destination array
+				$array['destinations'][0]['destination_uuid'] = $destination_uuid;
+				$array['destinations'][0]['domain_uuid'] = $park_domain_uuid;
+				$array['destinations'][0]['destination_type'] = 'inbound';
+				$array['destinations'][0]['destination_number'] = $tn_10;
+				$array['destinations'][0]['destination_prefix'] = '1';
+				$array['destinations'][0]['destination_context'] = 'public';
+				$array['destinations'][0]['destination_enabled'] = 'true';
+				$array['destinations'][0]['destination_description'] = 'Parked number';
+				
+				// Grant temporary permissions
+				$p = permissions::new();
+				$p->add('destination_add', 'temp');
+				$p->add('dialplan_add', 'temp');
+				$p->add('dialplan_detail_add', 'temp');
+				
+				// Save the destination
+				$database->app_name = 'destinations';
+				$database->app_uuid = '5ec89622-b19c-3559-64f0-afde802ab139';
+				$database->save($array);
+				
+				// Revoke temporary permissions
+				$p->delete('destination_add', 'temp');
+				$p->delete('dialplan_add', 'temp');
+				$p->delete('dialplan_detail_add', 'temp');
+			}
 			
 			message::add($text['message-park-success']);
 			// Redirect to destination edit page
