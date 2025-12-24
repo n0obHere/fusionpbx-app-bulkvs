@@ -77,7 +77,14 @@ class bulkvs_cache {
 		
 		$sql .= "ORDER BY tn ASC ";
 		
-		$results = $this->database->select($sql, $parameters, 'all');
+		try {
+			$results = $this->database->select($sql, $parameters, 'all');
+			error_log("BulkVS getNumbers: Query returned " . count($results) . " rows for trunk_group: " . ($trunk_group ?? 'null'));
+		} catch (Exception $e) {
+			error_log("BulkVS getNumbers error: " . $e->getMessage());
+			error_log("SQL: " . $sql);
+			$results = [];
+		}
 		
 		// Convert database results to API-like format
 		$numbers = [];
@@ -212,15 +219,21 @@ class bulkvs_cache {
 			$bulkvs_api = new bulkvs_api($this->settings);
 			
 			// Fetch from API
+			error_log("BulkVS: Fetching numbers from API for trunk_group: " . ($trunk_group ?? 'null'));
 			$api_response = $bulkvs_api->getNumbers($trunk_group);
+			error_log("BulkVS: API response type: " . gettype($api_response));
+			error_log("BulkVS: API response keys: " . (is_array($api_response) ? implode(', ', array_keys($api_response)) : 'not array'));
 			
 			// Handle API response format
 			if (isset($api_response['data']) && is_array($api_response['data'])) {
 				$numbers = $api_response['data'];
+				error_log("BulkVS: Found " . count($numbers) . " numbers in api_response['data']");
 			} elseif (is_array($api_response)) {
 				$numbers = $api_response;
+				error_log("BulkVS: Found " . count($numbers) . " numbers in api_response array");
 			} else {
 				$numbers = [];
+				error_log("BulkVS: API response is not an array, setting numbers to empty");
 			}
 			
 			// Filter out empty/invalid entries
@@ -229,6 +242,7 @@ class bulkvs_cache {
 				return !empty($tn);
 			});
 			$numbers = array_values($numbers);
+			error_log("BulkVS: After filtering, have " . count($numbers) . " valid numbers");
 			
 			$new_count = 0;
 			$updated_count = 0;
@@ -245,6 +259,8 @@ class bulkvs_cache {
 			$current_count = isset($current_count_result['count']) ? (int)$current_count_result['count'] : 0;
 			
 			// Upsert each number
+			error_log("BulkVS: Starting to upsert " . count($numbers) . " numbers");
+			$inserted_count = 0;
 			foreach ($numbers as $number) {
 				$tn = $number['TN'] ?? $number['tn'] ?? $number['telephoneNumber'] ?? '';
 				if (empty($tn)) {
@@ -337,13 +353,19 @@ class bulkvs_cache {
 				
 				try {
 					$this->database->execute($sql, $parameters);
+					$inserted_count++;
+					if ($inserted_count % 10 == 0) {
+						error_log("BulkVS: Inserted $inserted_count numbers so far...");
+					}
 				} catch (Exception $e) {
 					error_log("BulkVS cache insert error for TN $tn: " . $e->getMessage());
 					error_log("SQL: " . substr($sql, 0, 500));
+					error_log("Parameters: " . json_encode($parameters));
 					// Don't throw - continue with other records
 					error_log("Continuing with other records...");
 				}
 			}
+			error_log("BulkVS: Finished upserting. Total inserted/updated: $inserted_count");
 			
 			// Remove numbers from cache that are no longer in API response (if trunk_group is specified)
 			if (!empty($trunk_group)) {
