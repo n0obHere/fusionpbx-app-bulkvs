@@ -277,13 +277,34 @@ class bulkvs_cache {
 			$inserted_count = 0;
 			$failed_count = 0;
 			
-			// Test database connection first
+			// Test database connection and table access first
 			try {
 				$test_sql = "SELECT 1 as test";
 				$test_result = $this->database->select($test_sql, null, 'row');
 				error_log("BulkVS: Database connection test: " . ($test_result ? 'OK' : 'FAILED'));
+				
+				// Test if table exists and is accessible
+				$table_test = "SELECT COUNT(*) as count FROM v_bulkvs_numbers_cache";
+				$table_result = $this->database->select($table_test, null, 'row');
+				error_log("BulkVS: Table access test - current record count: " . ($table_result['count'] ?? 'ERROR'));
+				
+				// Test a simple insert to see if we can write
+				$simple_test_tn = 'TEST_' . time();
+				$simple_test_sql = "INSERT INTO v_bulkvs_numbers_cache (cache_uuid, tn, trunk_group, status) VALUES (gen_random_uuid(), :tn, :tg, 'Test') ON CONFLICT (tn) DO UPDATE SET status = 'Test'";
+				$simple_test_result = $this->database->execute($simple_test_sql, ['tn' => $simple_test_tn, 'tg' => $trunk_group ?? 'test']);
+				error_log("BulkVS: Simple insert test result: " . var_export($simple_test_result, true));
+				
+				// Verify the test insert
+				$verify_test = $this->database->select("SELECT tn FROM v_bulkvs_numbers_cache WHERE tn = :tn", ['tn' => $simple_test_tn], 'row');
+				error_log("BulkVS: Simple insert verification: " . ($verify_test ? 'SUCCESS' : 'FAILED'));
+				
+				// Clean up test record
+				if ($verify_test) {
+					$this->database->execute("DELETE FROM v_bulkvs_numbers_cache WHERE tn = :tn", ['tn' => $simple_test_tn]);
+				}
 			} catch (Exception $e) {
-				error_log("BulkVS: Database connection test FAILED: " . $e->getMessage());
+				error_log("BulkVS: Database/table test FAILED: " . $e->getMessage());
+				error_log("BulkVS: Test error trace: " . $e->getTraceAsString());
 			}
 			
 			foreach ($numbers as $number) {
@@ -377,8 +398,13 @@ class bulkvs_cache {
 				];
 				
 				try {
-					// Try execute and check result
-					$result = @$this->database->execute($sql, $parameters);
+					// Try execute and check result - NO @ operator to see actual errors
+					$result = $this->database->execute($sql, $parameters);
+					
+					// Log execute result for debugging
+					if ($failed_count < 3) {
+						error_log("BulkVS: execute() returned: " . var_export($result, true) . " for TN $tn");
+					}
 					
 					// Verify the insert actually worked by checking if the record exists
 					$verify_sql = "SELECT cache_uuid FROM v_bulkvs_numbers_cache WHERE tn = :tn";
@@ -394,10 +420,22 @@ class bulkvs_cache {
 					
 					if (empty($verify_result)) {
 						$failed_count++;
-						if ($failed_count <= 5) { // Only log first 5 failures to avoid spam
+						if ($failed_count <= 3) { // Only log first 3 failures to see the pattern
 							error_log("BulkVS: Insert FAILED for TN $tn - record not found after insert");
-							error_log("BulkVS: SQL length: " . strlen($sql));
-							error_log("BulkVS: Parameters: " . json_encode(array_keys($parameters)));
+							error_log("BulkVS: execute() result was: " . var_export($result, true));
+							error_log("BulkVS: SQL snippet: " . substr($sql, 0, 200) . "...");
+							error_log("BulkVS: Parameters sample: tn=" . $tn . ", trunk_group=" . ($trunk_group ?? 'null'));
+							
+							// Try a simple test insert to see if the table exists and is writable
+							if ($failed_count == 1) {
+								try {
+									$test_sql = "INSERT INTO v_bulkvs_numbers_cache (cache_uuid, tn, trunk_group) VALUES (gen_random_uuid(), :test_tn, :test_tg) ON CONFLICT (tn) DO NOTHING";
+									$test_result = $this->database->execute($test_sql, ['test_tn' => 'TEST_' . time(), 'test_tg' => $trunk_group]);
+									error_log("BulkVS: Simple test insert result: " . var_export($test_result, true));
+								} catch (Exception $test_e) {
+									error_log("BulkVS: Simple test insert FAILED: " . $test_e->getMessage());
+								}
+							}
 						}
 						continue;
 					}
