@@ -37,13 +37,62 @@ This app provides seamless integration between FusionPBX and BulkVS, allowing ad
 - **Server-Side Pagination**: Efficient pagination for large result sets
 - **Server-Side Filtering**: Filter all results, not just the current page
 - **Permission-Based Access**: Granular permissions for viewing, editing, searching, and purchasing
+- **Database Caching**: Fast page loads with automatic background synchronization
+  - Numbers and E911 records cached in PostgreSQL for instant display
+  - Background sync keeps cache up-to-date without blocking the UI
+  - Refresh button appears when new or deleted records are detected
+  - Cache automatically matches API data exactly (adds new, removes deleted)
 - **FusionPBX Standards**: Built using FusionPBX frameworks and follows standard app patterns
 - **No External Dependencies**: Uses standard PHP cURL library (no additional packages required)
+
+## Database Caching System
+
+The app includes a sophisticated caching system that stores BulkVS numbers and E911 records in PostgreSQL for fast page loads. This eliminates the need to wait for slow API calls when viewing large datasets.
+
+### How It Works
+
+1. **Initial Load**: When you first open the Numbers or E911 page, data is loaded instantly from the cache
+2. **Background Sync**: After the page loads, a background sync automatically updates the cache with the latest data from the BulkVS API
+3. **Change Detection**: If new records are added or existing records are deleted, a refresh button appears at the top of the page
+4. **Cache Synchronization**: The cache is kept in sync with the API - new numbers are added, deleted/disconnected numbers are removed
+
+### Cache Tables
+
+The caching system creates three tables in your PostgreSQL database:
+
+- **v_bulkvs_numbers_cache**: Stores cached number data
+- **v_bulkvs_e911_cache**: Stores cached E911 record data
+- **v_bulkvs_sync_status**: Tracks sync status and prevents concurrent syncs
+
+These tables are automatically created when you run the FusionPBX upgrade after installing/updating the app.
+
+### Refresh Button
+
+The refresh button appears in the action bar when:
+- New numbers are added to your BulkVS account
+- Numbers are deleted or disconnected
+- E911 records are added or removed
+
+Clicking the refresh button reloads the page with the latest cached data and resets the change detection.
+
+### Manual Cache Management
+
+The cache is automatically managed, but you can manually trigger a sync by:
+- Reloading the page (triggers background sync)
+- Using the AJAX sync endpoint: `bulkvs_sync.php?type=numbers` or `bulkvs_sync.php?type=e911`
+
+### Cache Behavior
+
+- **Empty Cache**: If the cache is empty, data is fetched directly from the API for immediate display, then a background sync populates the cache
+- **Stale Sync Detection**: If a sync appears stuck (running for more than 2 minutes), it's automatically reset
+- **Exact Match**: The cache always matches the API exactly - deleted numbers are automatically removed from the cache
+- **Trunk Group Filtering**: Numbers cache respects trunk group filtering - only numbers for your configured trunk group are cached
 
 ## Requirements
 
 - FusionPBX installation
 - PHP with cURL extension enabled
+- PostgreSQL database (for caching)
 - BulkVS API account with API credentials
 - Valid BulkVS trunk group configured
 
@@ -171,16 +220,18 @@ You can access E911 management in two ways:
 
 ```
 bulkvs/
-├── app_config.php              # App configuration, permissions, and default settings
+├── app_config.php              # App configuration, permissions, default settings, and database schema
 ├── app_menu.php                # Menu items for the app
 ├── app_languages.php           # Language strings for UI elements
 ├── bulkvs_numbers.php          # Main numbers list page
 ├── bulkvs_number_edit.php     # Number edit page
 ├── bulkvs_e911_edit.php        # E911 record edit page
 ├── bulkvs_search.php           # Search and purchase page
+├── bulkvs_sync.php             # AJAX endpoint for background synchronization
 └── resources/
     └── classes/
-        └── bulkvs_api.php      # BulkVS API client class
+        ├── bulkvs_api.php      # BulkVS API client class
+        └── bulkvs_cache.php    # Database caching and synchronization class
 ```
 
 ## API Client
@@ -196,6 +247,24 @@ The `bulkvs_api` class provides methods for interacting with the BulkVS API:
 - `getE911Record($tn)`: Get E911 record for a specific number
 - `validateAddress($address_data)`: Validate an address and get AddressID
 - `saveE911Record($tn, $caller_name, $address_id, $sms)`: Save/update E911 record
+
+## Cache Client
+
+The `bulkvs_cache` class provides methods for managing cached data:
+
+- `getNumbers($trunk_group)`: Retrieve numbers from cache filtered by trunk group
+- `getE911Records()`: Retrieve E911 records from cache
+- `syncNumbers($trunk_group)`: Synchronize numbers from API to cache (background)
+- `syncE911()`: Synchronize E911 records from API to cache (background)
+- `hasChanges($sync_type)`: Check if records have changed (added or deleted)
+- `hasNewRecords($sync_type)`: Check if new records exist (legacy method)
+- `getSyncStatus($sync_type)`: Get sync status for numbers or E911
+- `resetLastRecordCount($sync_type)`: Reset change detection after refresh
+- `clearCache($sync_type)`: Clear cache for a sync type
+- `updateNumber($tn, $number_data)`: Update a single number in cache
+- `deleteNumber($tn)`: Delete a number from cache
+- `updateE911($tn, $e911_data)`: Update a single E911 record in cache
+- `deleteE911($tn)`: Delete an E911 record from cache
 
 ## API Documentation
 
@@ -231,6 +300,14 @@ https://portal.bulkvs.com/api/v1.0/openapi
 - Check that the address validation returns "GEOCODED" status
 - Ensure state is a valid 2-letter abbreviation
 - Check that ZIP code is valid
+
+### Cache Issues
+
+- **Cache Not Updating**: If the cache appears stale, reload the page to trigger a background sync
+- **Sync Stuck**: If sync appears stuck, you can force reset it by accessing `bulkvs_sync.php?type=numbers&force_reset=1` or `bulkvs_sync.php?type=e911&force_reset=1`
+- **Missing Data**: If data doesn't appear in cache, check PostgreSQL logs and FusionPBX error logs for database errors
+- **Refresh Button Not Appearing**: Ensure the sync completed successfully - check sync status in the database table `v_bulkvs_sync_status`
+- **Deleted Numbers Still Showing**: The cache should automatically remove deleted numbers, but if they persist, reload the page to trigger a sync
 
 ## License
 
