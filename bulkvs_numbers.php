@@ -176,12 +176,12 @@
 		message::add($text['message-api-error'] . ': ' . $error_message, 'negative');
 	}
 
-//check if new records are available
-	$has_new_numbers = false;
+//check if records have changed (new or deleted)
+	$has_changes_numbers = false;
 	try {
-		$has_new_numbers = $cache->hasNewRecords('numbers');
+		$has_changes_numbers = $cache->hasChanges('numbers');
 	} catch (Exception $e) {
-		// Ignore errors checking for new records
+		// Ignore errors checking for changes
 	}
 
 //create token (needed for disconnect action and modals)
@@ -350,7 +350,7 @@
 	echo "</div>\n";
 	echo "	<div class='actions'>\n";
 	// Refresh button (hidden by default, shown when new records available)
-	$refresh_button_style = $has_new_numbers ? '' : 'display: none;';
+	$refresh_button_style = $has_changes_numbers ? '' : 'display: none;';
 	echo "<span id='refresh_button_container' style='".$refresh_button_style."'>";
 	echo button::create(['type'=>'button','label'=>$text['button-refresh'],'icon'=>'refresh','id'=>'btn_refresh','onclick'=>"refreshPage();"]);
 	echo "</span>\n";
@@ -628,7 +628,7 @@
 	echo "				if (xhr.status === 200) {\n";
 	echo "					try {\n";
 	echo "						var response = JSON.parse(xhr.responseText);\n";
-	echo "						if (response.success && response.new_records > 0) {\n";
+	echo "						if (response.success && response.new_records !== 0) {\n";
 	echo "							// Show refresh button\n";
 	echo "							var refreshBtn = document.getElementById('refresh_button_container');\n";
 	echo "							if (refreshBtn) {\n";

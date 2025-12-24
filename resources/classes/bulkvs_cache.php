@@ -852,6 +852,24 @@ class bulkvs_cache {
 	}
 
 	/**
+	 * Check if there are changes (new or deleted records) since last sync
+	 * @param string $sync_type 'numbers' or 'e911'
+	 * @return bool True if records have changed (added or deleted)
+	 */
+	public function hasChanges($sync_type) {
+		$sync_status = $this->getSyncStatus($sync_type);
+		if (!$sync_status) {
+			return false;
+		}
+		
+		$current_count = isset($sync_status['current_record_count']) ? (int)$sync_status['current_record_count'] : 0;
+		$last_count = isset($sync_status['last_record_count']) ? (int)$sync_status['last_record_count'] : 0;
+		
+		// Return true if count changed in either direction (new records added or records deleted)
+		return $current_count !== $last_count;
+	}
+
+	/**
 	 * Get sync status for a sync type
 	 * @param string $sync_type 'numbers' or 'e911'
 	 * @return array|null Sync status array or null if not found
