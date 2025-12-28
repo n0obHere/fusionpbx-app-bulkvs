@@ -718,7 +718,9 @@
 	echo button::create(['type'=>'button','label'=>$text['button-refresh'],'icon'=>'refresh','id'=>'btn_refresh','onclick'=>"refreshPage();"]);
 	echo "</span>\n";
 	if (permission_exists('bulkvs_view')) {
-		echo button::create(['type'=>'button','label'=>$text['label-e911'],'icon'=>'phone','link'=>'bulkvs_e911.php']);
+		if (permission_exists('bulkvs_e911') || permission_exists('bulkvs_e911_server') || permission_exists('bulkvs_e911_all')) {
+			echo button::create(['type'=>'button','label'=>$text['label-e911'],'icon'=>'phone','link'=>'bulkvs_e911.php']);
+		}
 		echo button::create(['type'=>'button','label'=>$text['label-lrn-lookup'],'icon'=>'search','link'=>'bulkvs_lrn.php']);
 	}
 	if (permission_exists('bulkvs_search')) {

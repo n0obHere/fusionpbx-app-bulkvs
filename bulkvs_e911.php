@@ -30,7 +30,7 @@
 	require_once dirname(__DIR__, 2) . "/resources/paging.php";
 
 //check permissions
-	if (!permission_exists('bulkvs_view')) {
+	if (!permission_exists('bulkvs_e911') && !permission_exists('bulkvs_e911_server') && !permission_exists('bulkvs_e911_all')) {
 		echo "access denied";
 		exit;
 	}
@@ -130,6 +130,84 @@
 			$e911_tn = $e911_record['TN'] ?? $e911_record['tn'] ?? '';
 			if (!empty($e911_tn)) {
 				$e911_map[$e911_tn] = $e911_record;
+			}
+		}
+		
+		// Filter E911 records based on permissions
+		// Priority: bulkvs_e911_all > bulkvs_e911_server > bulkvs_e911
+		// bulkvs_e911_all: show all records (no filtering)
+		// bulkvs_e911_server: show only E911s with destinations on this server (any domain)
+		// bulkvs_e911: show only E911s with destinations in current domain
+		if (!permission_exists('bulkvs_e911_all')) {
+			if (!isset($database) || $database === null) {
+				$database = new database;
+			}
+			
+			$destination_numbers = [];
+			
+			if (permission_exists('bulkvs_e911_server')) {
+				// Get all destination numbers on this server (any domain)
+				$sql = "select distinct destination_number ";
+				$sql .= "from v_destinations ";
+				$sql .= "where destination_type = 'inbound' ";
+				$sql .= "and destination_enabled = 'true' ";
+				$server_destinations = $database->select($sql, null, 'all');
+				unset($sql);
+				
+				// Build set of 10-digit destination numbers
+				foreach ($server_destinations as $dest) {
+					$dest_number = $dest['destination_number'] ?? '';
+					if (!empty($dest_number)) {
+						$destination_numbers[$dest_number] = true;
+					}
+				}
+			} elseif (permission_exists('bulkvs_e911')) {
+				// Get all destination numbers in current domain
+				$sql = "select distinct destination_number ";
+				$sql .= "from v_destinations ";
+				$sql .= "where domain_uuid = :domain_uuid ";
+				$sql .= "and destination_type = 'inbound' ";
+				$sql .= "and destination_enabled = 'true' ";
+				$parameters['domain_uuid'] = $domain_uuid;
+				$domain_destinations = $database->select($sql, $parameters, 'all');
+				unset($sql, $parameters);
+				
+				// Build set of 10-digit destination numbers
+				foreach ($domain_destinations as $dest) {
+					$dest_number = $dest['destination_number'] ?? '';
+					if (!empty($dest_number)) {
+						$destination_numbers[$dest_number] = true;
+					}
+				}
+			}
+			
+			// Filter E911 records to only include those with matching destinations
+			if (!empty($destination_numbers)) {
+				$filtered_e911_records = [];
+				foreach ($e911_records as $e911_record) {
+					$e911_tn = $e911_record['TN'] ?? $e911_record['tn'] ?? '';
+					if (!empty($e911_tn)) {
+						// Convert 11-digit to 10-digit (remove leading "1")
+						$tn_10 = preg_replace('/^1/', '', $e911_tn);
+						if (strlen($tn_10) == 10 && isset($destination_numbers[$tn_10])) {
+							$filtered_e911_records[] = $e911_record;
+						}
+					}
+				}
+				$e911_records = $filtered_e911_records;
+				
+				// Rebuild e911_map with filtered records
+				$e911_map = [];
+				foreach ($e911_records as $e911_record) {
+					$e911_tn = $e911_record['TN'] ?? $e911_record['tn'] ?? '';
+					if (!empty($e911_tn)) {
+						$e911_map[$e911_tn] = $e911_record;
+					}
+				}
+			} else {
+				// No destinations found, clear records
+				$e911_records = [];
+				$e911_map = [];
 			}
 		}
 	} catch (Exception $e) {

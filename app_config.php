@@ -95,6 +95,15 @@
 		$y++;
 		$apps[$x]['permissions'][$y]['name'] = "bulkvs_purchase";
 		$apps[$x]['permissions'][$y]['groups'][] = "superadmin";
+		$y++;
+		$apps[$x]['permissions'][$y]['name'] = "bulkvs_e911";
+		$apps[$x]['permissions'][$y]['groups'][] = "superadmin";
+		$y++;
+		$apps[$x]['permissions'][$y]['name'] = "bulkvs_e911_server";
+		$apps[$x]['permissions'][$y]['groups'][] = "superadmin";
+		$y++;
+		$apps[$x]['permissions'][$y]['name'] = "bulkvs_e911_all";
+		$apps[$x]['permissions'][$y]['groups'][] = "superadmin";
 
 	//schema details - Numbers cache table
 		$y=0;
