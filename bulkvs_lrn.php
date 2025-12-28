@@ -105,7 +105,7 @@
 				}
 				
 				// Build LRN lookup URL
-				$lrn_url = "http://lrn.bulkvs.com/?id=" . urlencode($http_secret) . "&did=" . urlencode($phone_clean) . "&ani=" . urlencode($phone_clean) . "&format=json";
+				$lrn_url = "https://lrn.bulkvs.com/?id=" . urlencode($http_secret) . "&did=" . urlencode($phone_clean) . "&ani=" . urlencode($phone_clean) . "&format=json";
 				
 				// Make the API request
 				$ch = curl_init();
